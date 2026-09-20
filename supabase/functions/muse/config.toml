@@ -1,0 +1,5 @@
+# The muse function accepts two credential types: user JWTs (from the app) and
+# opaque scoped Muse tokens (muse_...). It validates both itself, so the
+# gateway's default JWT verification must be disabled — otherwise opaque Muse
+# tokens are rejected as "Invalid JWT" before the function code runs.
+verify_jwt = false
