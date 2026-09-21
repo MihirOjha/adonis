@@ -1,0 +1,13 @@
+# Netlify build config — auto-detected when you import the GitHub repo.
+# Build the Expo web app into dist/, then serve it as a single-page app.
+
+[build]
+  command = "npm run build:web"
+  publish = "dist"
+
+# SPA fallback: client-side routing (expo-router) needs all paths to serve
+# index.html so deep links like /food or /coach work on refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

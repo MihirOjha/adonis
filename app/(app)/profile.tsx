@@ -91,7 +91,10 @@ export default function Profile() {
       setNewToken(raw);
       await refresh();
     } catch (e) {
-      Alert.alert("Couldn't create token", e instanceof Error ? e.message : "Error");
+      Alert.alert(
+        "Couldn't create token",
+        e instanceof Error ? e.message : "Error",
+      );
     } finally {
       setTokenBusy(false);
     }
@@ -148,7 +151,11 @@ export default function Profile() {
           targets. A token only ever touches your own data, and you can revoke
           it anytime.
         </Text>
-        <Button title="Generate Muse token" onPress={makeToken} loading={tokenBusy} />
+        <Button
+          title="Generate Muse token"
+          onPress={makeToken}
+          loading={tokenBusy}
+        />
         {newToken ? (
           <View style={styles.tokenBox}>
             <Text style={styles.tokenLabel}>
@@ -159,17 +166,19 @@ export default function Profile() {
             </Text>
           </View>
         ) : null}
-        {tokens.filter((t) => !t.revoked_at).map((t) => (
-          <View key={t.id} style={styles.tokenRow}>
-            <Text style={styles.dim}>
-              {t.label} · created {t.created_at.slice(0, 10)}
-              {t.last_used_at ? ` · used ${t.last_used_at.slice(0, 10)}` : ""}
-            </Text>
-            <Text style={styles.revoke} onPress={() => revoke(t.id)}>
-              Revoke
-            </Text>
-          </View>
-        ))}
+        {tokens
+          .filter((t) => !t.revoked_at)
+          .map((t) => (
+            <View key={t.id} style={styles.tokenRow}>
+              <Text style={styles.dim}>
+                {t.label} · created {t.created_at.slice(0, 10)}
+                {t.last_used_at ? ` · used ${t.last_used_at.slice(0, 10)}` : ""}
+              </Text>
+              <Text style={styles.revoke} onPress={() => revoke(t.id)}>
+                Revoke
+              </Text>
+            </View>
+          ))}
       </Card>
 
       <Card title="Account">
