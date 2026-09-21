@@ -1,0 +1,133 @@
+================================================================================
+ADONIS — STATE, GAPS & COLLABORATION PLAN
+================================================================================
+Purpose: a shared reference for both the app developer (GitHub Copilot) and the
+coach (Muse). Captures what exists, what's missing for high-quality adaptive
+coaching, and how the two should stay in sync so nothing gets missed.
+
+================================================================================
+PART 1 — WHAT EXISTS TODAY (working, deployed)
+================================================================================
+
+Backend (Supabase, free tier, project ref grqaxxvmjqdycvxmniyb):
+  * Postgres tables: profiles, cycles, foods, recipes, recipe_ingredients,
+    daily_logs, food_entries, exercises, workout_sessions, exercise_sets,
+    body_metrics, coach_targets, inbox_notes, share_permissions, muse_tokens.
+  * Row-Level Security on every user table (each user only sees their own rows).
+  * Auto-create profile on signup (handle_new_user trigger).
+  * Scoped Muse tokens (muse_tokens table, sha256-hashed, revocable).
+
+Muse edge function (deployed, verify_jwt=false, validates tokens itself):
+  * Endpoint: POST /functions/v1/muse
+  * Auth: Bearer <muse_... token> OR a user JWT.
+  * Actions: summary (read), set_target, log_weight, add_note, log_food.
+  * Full payload shapes documented in MUSE_API.txt.
+
+Frontend (Expo / React Native + web, deployed on Cloudflare Pages):
+  * Tabs: Today (dashboard), Food (logging), Body (weigh-ins + trend),
+    Coach (adaptive target + rationale), Profile (settings + Muse token).
+  * Live at https://adonis-a3y.pages.dev
+
+Domain logic (src/domain, pure/tested):
+  * Adaptive expenditure engine (estimates TDEE from weight trend vs intake).
+  * Target calculator, recipe portioning, EWMA weight trend + stall detection.
+
+================================================================================
+PART 2 — GAPS THAT LIMIT ADVICE QUALITY (prioritized)
+================================================================================
+These are the things Muse currently CANNOT see/do that would materially improve
+its coaching. Ordered by impact on advice quality.
+
+  G1. No target/expenditure HISTORY in `summary`.
+      Only the latest target is returned. Muse can't tell whether the previous
+      change worked, so it re-decides blind each time.
+      FIX: return recent coach_targets history (e.g. last 10) + the computed
+      expenditure estimate series.
+
+  G2. Intake summary is calories+protein only.
+      No carbs/fat/fiber/micros, so Muse can't advise on food quality or
+      micronutrients.
+      FIX: include carbs, fat, fiber (and optionally key micros) per day.
+
+  G3. No pre-computed trend/stall/adherence signal.
+      The app computes weight slope + isStalled internally but doesn't expose it.
+      Muse re-derives it (or misses it).
+      FIX: add to `summary`: current weight slope (kg/wk), days-stalled flag,
+      and logging adherence (days logged / days elapsed).
+
+  G4. Body measurements trend not in context.
+      Weights are present; waist/body-fat trend matters for recomp advice.
+      FIX: include measurement series (already partially there via weights;
+      extend to waist/bodyfat over time).
+
+  G5. Muse Inbox is write-only from Muse's side.
+      Muse can add_note but can't read back / mark processed.
+      FIX: add `list_notes` and `mark_note` actions (optional, lower priority).
+
+  G6. No cycle awareness in the API.
+      Cycles (cut/maintain/bulk phases) exist in the schema but Muse can't read
+      or manage them via the function.
+      FIX: include active cycle in `summary`; optionally a `set_cycle` action.
+
+================================================================================
+PART 3 — HOW COPILOT (dev) AND MUSE (coach) STAY IN SYNC
+================================================================================
+The risk: each works from partial info and something gets missed. The fix is a
+single source of truth + a lightweight change protocol.
+
+  R1. SINGLE SOURCE OF TRUTH = this repo.
+      * MUSE_API.txt  = the live API contract (what Muse may call).
+      * This file     = state + gaps + plan.
+      * PLAN.md       = product vision / decisions.
+      Rule: if the API changes, MUSE_API.txt is updated IN THE SAME COMMIT.
+      Muse should treat MUSE_API.txt as authoritative, not memory.
+
+  R2. VERSION THE CONTRACT.
+      * Add a "contract_version" to MUSE_API.txt and bump it on any change.
+      * Muse can call a tiny `ping`/`version` read to confirm it's using the
+        current contract before relying on new fields.
+
+  R3. CHANGE LOG SECTION (below, Part 4).
+      * Every API/behavior change gets a dated line. Muse reads the top of the
+        log to learn what's new since it last checked.
+
+  R4. CAPABILITY NEGOTIATION.
+      * If Muse needs something it can't do (e.g. "I want fiber per day"), it
+        records it as a request — either via `add_note` with a prefix like
+        "CAPABILITY-REQUEST: ..." or by telling the user, who relays it here.
+      * Copilot reviews these and either adds the capability or explains why not.
+
+  R5. NO BLIND WRITES.
+      * Muse only writes via the documented actions and only after a `summary`
+        read. This prevents junk rows and keeps the data clean.
+
+  R6. PERIODIC RE-SYNC.
+      * Each coaching session starts with `summary` + a glance at the change log
+        version, so Muse always works from current state + current contract.
+
+================================================================================
+PART 4 — CHANGE LOG (newest first)
+================================================================================
+  2026-09-21  v2  Added async message channel + contract versioning.
+                  New actions: version, send_message, list_messages.
+                  New table: muse_messages (shared Muse<->dev board).
+                  Contract files moved to dev/ folder. Muse can now push
+                  feedback/capability-requests and pull dev replies via the API.
+  2026-09-21  v1  Initial scoped-token API live. Actions: summary, set_target,
+                  log_weight, add_note, log_food. Contract documented in
+                  MUSE_API.txt. Gaps G1-G6 identified for next iteration.
+
+================================================================================
+PART 5 — OPEN QUESTIONS FOR MUSE (please answer)
+================================================================================
+  Q1. What data do you MOST need that you don't have? (Our guess: G1 target
+      history + G3 stall signal. Confirm or reorder.)
+  Q2. How often will you call the API (per day / per session)? Affects whether
+      we add caching or a bulk read.
+  Q3. Do you want to manage Cycles (cut/maintain phases) via the API, or leave
+      that to the user in the app?
+  Q4. Any write action you need beyond the five? (e.g. edit/delete a food entry,
+      create a recipe.)
+  Q5. Preferred format for the expenditure estimate — raw number, or number +
+      confidence interval + rationale?
+================================================================================

@@ -27,6 +27,11 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Bump this whenever the action contract changes, and update dev/MUSE_API.txt
+// in the same commit. Muse calls `version` to confirm it's on the current
+// contract before relying on new fields/actions.
+const CONTRACT_VERSION = "2";
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -247,6 +252,56 @@ Deno.serve(async (req: Request) => {
           .single();
         if (error) throw error;
         return json({ entry: data });
+      }
+
+      case "version": {
+        // Lets Muse confirm it's working against the current contract.
+        return json({
+          contract_version: CONTRACT_VERSION,
+          actions: [
+            "summary",
+            "set_target",
+            "log_weight",
+            "add_note",
+            "log_food",
+            "version",
+            "send_message",
+            "list_messages",
+          ],
+        });
+      }
+
+      case "send_message": {
+        const { kind, body } = payload;
+        if (typeof body !== "string" || !body.trim()) {
+          return json({ error: "body (non-empty string) is required" }, 400);
+        }
+        const allowed = ["capability_request", "feedback", "suggestion", "question", "note"];
+        const { data, error } = await supabase
+          .from("muse_messages")
+          .insert({
+            user_id: userId,
+            author: "muse",
+            kind: allowed.includes(kind) ? kind : "note",
+            body: body.trim(),
+          })
+          .select("id, kind, status, created_at")
+          .single();
+        if (error) throw error;
+        return json({ message: data });
+      }
+
+      case "list_messages": {
+        // Muse pulls the conversation: its own messages + dev/user replies.
+        const limit = typeof payload.limit === "number" ? payload.limit : 50;
+        const { data, error } = await supabase
+          .from("muse_messages")
+          .select("id, author, kind, body, status, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        return json({ messages: data ?? [] });
       }
 
       default:

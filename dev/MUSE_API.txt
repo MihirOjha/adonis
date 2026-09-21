@@ -1,0 +1,158 @@
+================================================================================
+ADONIS — MUSE COACH API · INTEGRATION GUIDE
+================================================================================
+CONTRACT_VERSION: 2
+This document tells Muse (an AI coach) how to read and write one user's Adonis
+data through a single, scoped, secure endpoint. Share this whole file with Muse.
+Always confirm you're on the current contract by calling the `version` action.
+
+--------------------------------------------------------------------------------
+1. WHAT THIS IS
+--------------------------------------------------------------------------------
+Adonis is a personal nutrition / body-composition tracker. Muse is the adaptive
+coach. This API is the ONLY way Muse talks to a user's data.
+
+Security model (important — do not try to bypass it):
+  * Each user has their OWN scoped token. A token only ever touches that ONE
+    user's data. This is enforced by the backend, not by trust.
+  * Muse must NEVER ask for or use a Supabase "service role" / "secret" key.
+    That would bypass all security and is not needed. The scoped token is enough.
+  * Do NOT call any other Supabase endpoint (no /rest/v1/..., no auth endpoints).
+    Only the single endpoint below.
+
+--------------------------------------------------------------------------------
+2. HOW TO CALL (the only request shape)
+--------------------------------------------------------------------------------
+Method:   POST
+URL:      https://grqaxxvmjqdycvxmniyb.supabase.co/functions/v1/muse
+
+Headers:
+  Authorization: Bearer <THE_USER'S_MUSE_TOKEN>     <- the "muse_..." token
+  Content-Type:  application/json
+
+Body:       raw JSON object. Always includes "action": "<name>", plus that
+            action's fields (see section 3).
+
+Conventions:
+  * Dates are ISO "YYYY-MM-DD". If omitted, "today" is used.
+  * Macros (protein/carbs/fat) are in GRAMS. Calories in kcal. Weight in kg.
+  * All responses are JSON. Success returns an object; failure returns
+    { "error": "<message>" } with a non-200 status.
+
+Minimal example (read current state):
+  POST /functions/v1/muse
+  { "action": "summary" }
+
+--------------------------------------------------------------------------------
+3. SUPPORTED ACTIONS (exact payload shapes)
+--------------------------------------------------------------------------------
+There are exactly EIGHT actions. Do not guess others; anything else returns
+400 "Unknown action".
+
+--- 3.1 summary  (READ) -------------------------------------------------------
+Purpose: get the user's current state. ALWAYS call this first.
+Payload:  { "action": "summary" }
+Returns:  {
+            "profile":       { ...user profile row... } | null,
+            "weights":       [ { "metric_date", "weight_kg", "body_fat", "waist_cm" }, ... ],   // last 90 days, newest first
+            "intake":        [ { "date", "calories", "protein" }, ... ],                        // last 30 days, newest first
+            "currentTarget": { ...latest coach_targets row... } | null
+          }
+
+--- 3.2 set_target  (WRITE) ---------------------------------------------------
+Purpose: set a new daily macro/calorie target for the user.
+Required (numbers): calories, protein, carbs, fat
+Optional:           expenditure (number, kcal), rationale (string), cycle_id (uuid string)
+Payload:  {
+            "action": "set_target",
+            "calories": 2100, "protein": 160, "carbs": 200, "fat": 70,
+            "expenditure": 2600,
+            "rationale": "Weight stalled ~2 weeks; small deficit increase."
+          }
+Returns:  { "target": { ...created row... } }
+Notes:    effective_date is set to today automatically; set_by is forced to "muse".
+          Each call creates a NEW dated row (this is intentional history, not junk).
+
+--- 3.3 log_weight  (WRITE) ---------------------------------------------------
+Purpose: record a body-weight measurement.
+Required (number):  weight_kg
+Optional:           body_fat (number), date (YYYY-MM-DD, default today)
+Payload:  { "action": "log_weight", "weight_kg": 82.4, "body_fat": 18.5, "date": "2026-09-21" }
+Returns:  { "metric": { ...row... } }
+Notes:    Upserts per (user, date, source="manual") — safe to re-call for the same day.
+
+--- 3.4 add_note  (WRITE) -----------------------------------------------------
+Purpose: drop raw free-text into the Muse Inbox (for later tidying/processing).
+Required (string):  text (non-empty)
+Payload:  { "action": "add_note", "text": "Low energy, poor sleep. Ate out at lunch." }
+Returns:  { "note": { ...row... } }
+
+--- 3.5 log_food  (WRITE) -----------------------------------------------------
+Purpose: append a food entry to a day's log.
+Required (numbers): grams, calories
+Optional:           protein, carbs, fat (numbers, default 0),
+                    meal ("breakfast" | "lunch" | "dinner" | "snack", default "snack"),
+                    date (YYYY-MM-DD, default today)
+Payload:  {
+            "action": "log_food", "grams": 150, "calories": 250,
+            "protein": 30, "carbs": 0, "fat": 12, "meal": "lunch", "date": "2026-09-21"
+          }
+Returns:  { "entry": { ...row... } }
+Notes:    Auto-creates the daily log for that date if it doesn't exist.
+
+--- 3.6 version  (READ) -------------------------------------------------------
+Purpose: confirm you're on the current contract before relying on new fields.
+Payload:  { "action": "version" }
+Returns:  { "contract_version": "2", "actions": [ ...supported action names... ] }
+Notes:    Call this at the start of a session. If contract_version is newer than
+          the MUSE_API.txt you have, ask the user to re-paste the latest file.
+
+--- 3.7 send_message  (WRITE) -------------------------------------------------
+Purpose: push a message to the dev/user (the async shared channel). Use this for
+         capability requests, feedback, suggestions, and questions.
+Required (string):  body (non-empty)
+Optional:           kind — one of "capability_request" | "feedback" |
+                    "suggestion" | "question" | "note" (default "note")
+Payload:  {
+            "action": "send_message",
+            "kind": "capability_request",
+            "body": "I need per-day fiber and a stall flag in summary to advise on plateaus."
+          }
+Returns:  { "message": { "id", "kind", "status", "created_at" } }
+Notes:    Use kind="capability_request" when you need something you can't do yet.
+
+--- 3.8 list_messages  (READ) -------------------------------------------------
+Purpose: pull the conversation — your own messages plus dev/user replies.
+Optional:           limit (number, default 50)
+Payload:  { "action": "list_messages", "limit": 50 }
+Returns:  { "messages": [ { "id", "author", "kind", "body", "status", "created_at" }, ... ] }
+Notes:    author is "muse" | "dev" | "user". Newest first. Check this for replies
+          to your capability requests.
+
+--------------------------------------------------------------------------------
+4. ERROR RESPONSES
+--------------------------------------------------------------------------------
+  401 { "error": "Missing Authorization header" }  -> no token sent
+  401 { "error": "Invalid token" }                 -> token wrong or revoked
+  400 { "error": "<field> is required ..." }       -> missing/invalid required field
+  400 { "error": "Unknown action: X" }             -> action not one of the eight
+  500 { "error": "<message>" }                     -> server error
+
+--------------------------------------------------------------------------------
+5. COACHING WORKFLOW (how to use this well)
+--------------------------------------------------------------------------------
+  0. Call `version` to confirm you're on the current contract.
+  1. Call `summary` to load current state (weights trend, intake, target).
+  2. Reason about the trend: compare actual weight change vs. what the logged
+     intake predicts. (Adonis uses an adaptive expenditure model — expenditure
+     is re-estimated from weight trend vs. intake, not a fixed TDEE.)
+  3. If a change is warranted, call `set_target` with a clear `rationale`.
+  4. Use `log_weight` / `log_food` / `add_note` to record data the user gives you.
+  5. Re-check with `summary` on the next interaction.
+
+Principles the app is built on (align your advice with these):
+  * Adaptive, not fixed: targets adjust as real expenditure becomes known.
+  * Trend over noise: use the weight TREND (smoothed), not single weigh-ins.
+  * Evidence-based, conservative changes; avoid aggressive swings.
+  * This is general wellness coaching, not medical advice.
+================================================================================
