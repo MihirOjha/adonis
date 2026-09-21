@@ -1,9 +1,0 @@
-# SPA fallback for Cloudflare Pages.
-# Serve real static assets as-is; only rewrite app routes to index.html.
-# Excluding the asset prefixes avoids the "infinite loop" error that a bare
-# "/* /index.html 200" rule triggers on Cloudflare.
-/_expo/*    /_expo/:splat    200
-/assets/*   /assets/:splat   200
-/favicon.ico  /favicon.ico   200
-/metadata.json  /metadata.json  200
-/*    /index.html    200
