@@ -1,7 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { colors } from "@/ui/theme";
@@ -46,20 +45,15 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  // Load the Ionicons font so tab/bar icons render as glyphs, not squares
-  // (mainly needed on web, where the font isn't bundled by default).
-  const [iconsReady, setIconsReady] = useState(false);
-  useEffect(() => {
-    Ionicons.loadFont()
-      .then(() => setIconsReady(true))
-      .catch(() => setIconsReady(true));
-  }, []);
-
+  // On web, the Ionicons font is loaded via a CDN @font-face in
+  // public/index.html (the bundled .ttf is served with the wrong MIME type by
+  // some static hosts, which caused square icons). On native, the font is
+  // bundled automatically. So we don't call Ionicons.loadFont() here.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <StatusBar style="light" />
-        {iconsReady ? <RootNavigator /> : null}
+        <RootNavigator />
       </AuthProvider>
     </GestureHandlerRootView>
   );
