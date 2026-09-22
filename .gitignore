@@ -43,6 +43,11 @@ supabase/.temp/
 web-log.txt
 eas-*.txt
 
+# temp query/output scratch files
+msgs.txt
+read-*.sql
+*.tmp.txt
+
 # typescript
 *.tsbuildinfo
 
