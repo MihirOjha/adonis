@@ -1,16 +1,17 @@
 /** Minimal shared theme tokens for a consistent look. */
 const defaults: Record<string, string> = {
-  bg: "#0B0F14",
-  surface: "#151B23",
-  surfaceAlt: "#1C242E",
-  border: "#26303B",
-  text: "#E7ECF2",
-  textDim: "#9AA7B4",
-  primary: "#4CC2FF",
-  primaryText: "#04121C",
-  success: "#57D9A3",
-  warn: "#F2C14E",
-  danger: "#F2686C",
+  // Refined dark palette — deep neutral base, subtle elevation, one accent.
+  bg: "#0E1116",
+  surface: "#161B22",
+  surfaceAlt: "#1D242E",
+  border: "#2A323D",
+  text: "#EDF1F6",
+  textDim: "#98A3B0",
+  primary: "#5B8DEF",
+  primaryText: "#0A1220",
+  success: "#4CC38A",
+  warn: "#E5B567",
+  danger: "#E5636C",
 };
 
 /**
@@ -34,7 +35,27 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 20,
+  sm: 10,
+  md: 14,
+  lg: 22,
+} as const;
+
+/** Typography scale for a more polished, consistent look. */
+export const type = {
+  title: { fontSize: 24, fontWeight: "800" as const, letterSpacing: -0.3 },
+  heading: { fontSize: 17, fontWeight: "700" as const },
+  body: { fontSize: 15, fontWeight: "400" as const },
+  label: { fontSize: 13, fontWeight: "600" as const },
+  caption: { fontSize: 12, fontWeight: "400" as const },
+} as const;
+
+/** Subtle elevation via shadow (native) / box-shadow (web). */
+export const elevation = {
+  card: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
+  },
 } as const;

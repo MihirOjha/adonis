@@ -24,4 +24,6 @@ export const env = {
   supabaseAnonKey: anonKey ?? "",
   /** Whether the app is configured enough to talk to Supabase. */
   isConfigured: Boolean(url && anonKey),
+  /** USDA FoodData Central API key for food text search (optional). */
+  usdaApiKey: process.env.EXPO_PUBLIC_USDA_API_KEY ?? "",
 };

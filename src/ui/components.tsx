@@ -10,7 +10,7 @@ import {
   type TextInputProps,
   type ViewProps,
 } from "react-native";
-import { colors, radius, spacing } from "./theme";
+import { colors, elevation, radius, spacing, type } from "./theme";
 
 /** A titled card container. */
 export function Card({
@@ -110,26 +110,25 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...elevation.card,
   },
   cardTitle: {
-    color: colors.textDim,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    color: colors.text,
+    ...type.heading,
   },
   button: {
     borderRadius: radius.md,
-    paddingVertical: spacing.md - 2,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 48,
   },
   buttonGhost: { borderWidth: 1, borderColor: colors.border },
-  buttonText: { fontWeight: "700", fontSize: 15 },
-  label: { color: colors.textDim, fontSize: 13, fontWeight: "600" },
+  buttonText: { fontWeight: "700", fontSize: 15, letterSpacing: 0.2 },
+  label: { color: colors.textDim, ...type.label },
   input: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
@@ -137,10 +136,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     color: colors.text,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.md,
     fontSize: 15,
+    minHeight: 48,
   },
   stat: { alignItems: "center", gap: 2, flex: 1 },
-  statValue: { color: colors.text, fontSize: 24, fontWeight: "800" },
-  statLabel: { color: colors.textDim, fontSize: 12 },
+  statValue: { color: colors.text, fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  statLabel: { color: colors.textDim, ...type.caption },
 });

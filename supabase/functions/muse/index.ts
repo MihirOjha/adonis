@@ -359,8 +359,14 @@ Deno.serve(async (req: Request) => {
               400,
             );
           }
-          if (s.rir != null && (typeof s.rir !== "number" || s.rir < 0 || s.rir > 10)) {
-            return json({ error: "rir must be a number between 0 and 10" }, 400);
+          if (
+            s.rir != null &&
+            (typeof s.rir !== "number" || s.rir < 0 || s.rir > 10)
+          ) {
+            return json(
+              { error: "rir must be a number between 0 and 10" },
+              400,
+            );
           }
         }
 

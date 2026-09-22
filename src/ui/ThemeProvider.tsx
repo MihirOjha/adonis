@@ -1,4 +1,10 @@
-import React, { useEffect, useState, createContext, useContext, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+  useMemo,
+} from "react";
 import { applyTheme, colors as base } from "./theme";
 
 /**
@@ -15,7 +21,11 @@ function isValidHex(v: string | null | undefined): v is string {
 /** Expand #RGB to #RRGGBB and parse to [r,g,b]. */
 function parseHex(hex: string): [number, number, number] {
   let h = hex.trim().slice(1);
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length === 3)
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
   return [
     parseInt(h.slice(0, 2), 16),
     parseInt(h.slice(2, 4), 16),
