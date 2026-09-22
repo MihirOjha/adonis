@@ -1,4 +1,3 @@
-import { KCAL_PER_G } from "./constants";
 import type { Macros, NutritionPer100g } from "./types";
 
 /**
@@ -19,18 +18,6 @@ export function scaleNutrition(
     carbs: per100g.carbs * factor,
     fat: per100g.fat * factor,
   };
-}
-
-/**
- * Estimate calories from macronutrients using Atwater factors.
- * Useful for sanity-checking crowd-sourced food data.
- */
-export function caloriesFromMacros(macros: Macros): number {
-  return (
-    macros.protein * KCAL_PER_G.protein +
-    macros.carbs * KCAL_PER_G.carbs +
-    macros.fat * KCAL_PER_G.fat
-  );
 }
 
 /**

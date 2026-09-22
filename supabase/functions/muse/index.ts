@@ -343,6 +343,8 @@ Deno.serve(async (req: Request) => {
         if (!Array.isArray(sets) || sets.length === 0) {
           return json({ error: "sets must be a non-empty array" }, 400);
         }
+        // Validate ALL sets up front (before any insert) so a bad set can't
+        // leave an orphaned 0-set session row.
         for (const s of sets) {
           if (
             !s ||
@@ -356,6 +358,9 @@ Deno.serve(async (req: Request) => {
               },
               400,
             );
+          }
+          if (s.rir != null && (typeof s.rir !== "number" || s.rir < 0 || s.rir > 10)) {
+            return json({ error: "rir must be a number between 0 and 10" }, 400);
           }
         }
 
