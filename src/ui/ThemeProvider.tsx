@@ -30,7 +30,9 @@ export function ThemeProvider({
     const c = accent!.trim();
     return { ...base, primary: c };
   }, [accent]);
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 /** Access the active theme colors (respects the per-user accent override). */

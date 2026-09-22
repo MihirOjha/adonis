@@ -147,7 +147,13 @@ export default function Profile() {
             <View
               style={[
                 styles.colorSwatch,
-                { backgroundColor: /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(themeColor.trim()) ? themeColor.trim() : colors.primary },
+                {
+                  backgroundColor: /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(
+                    themeColor.trim(),
+                  )
+                    ? themeColor.trim()
+                    : colors.primary,
+                },
               ]}
             />
             <View style={{ flex: 1 }}>

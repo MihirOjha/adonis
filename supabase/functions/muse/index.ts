@@ -111,7 +111,10 @@ Deno.serve(async (req: Request) => {
     if (existing.data?.id) return existing.data.id as string;
     const created = await supabase
       .from("daily_logs")
-      .upsert({ user_id: userId, log_date: day }, { onConflict: "user_id,log_date" })
+      .upsert(
+        { user_id: userId, log_date: day },
+        { onConflict: "user_id,log_date" },
+      )
       .select("id")
       .single();
     if (created.error) throw created.error;
@@ -146,7 +149,9 @@ Deno.serve(async (req: Request) => {
           // Recent workouts with their sets + exercise names.
           supabase
             .from("workout_sessions")
-            .select("id, name, duration_min, created_at, daily_logs!inner(log_date, user_id), exercise_sets(reps, weight_kg, rir, pain, rest_sec, position, notes, exercises(name))")
+            .select(
+              "id, name, duration_min, created_at, daily_logs!inner(log_date, user_id), exercise_sets(reps, weight_kg, rir, pain, rest_sec, position, notes, exercises(name))",
+            )
             .eq("daily_logs.user_id", userId)
             .order("created_at", { ascending: false })
             .limit(20),
@@ -266,7 +271,18 @@ Deno.serve(async (req: Request) => {
       }
 
       case "log_food": {
-        const { grams, calories, protein, carbs, fat, meal, date, food_id, recipe_id, name } = payload;
+        const {
+          grams,
+          calories,
+          protein,
+          carbs,
+          fat,
+          meal,
+          date,
+          food_id,
+          recipe_id,
+          name,
+        } = payload;
         if ([grams, calories].some((v) => typeof v !== "number")) {
           return json(
             { error: "grams and calories are required numbers" },
@@ -282,7 +298,8 @@ Deno.serve(async (req: Request) => {
             .eq("id", food_id)
             .eq("user_id", userId)
             .maybeSingle();
-          if (!f.data) return json({ error: "food_id not found or not yours" }, 400);
+          if (!f.data)
+            return json({ error: "food_id not found or not yours" }, 400);
         }
         if (recipe_id != null) {
           const r = await supabase
@@ -290,8 +307,14 @@ Deno.serve(async (req: Request) => {
             .select("id, user_id, visibility")
             .eq("id", recipe_id)
             .maybeSingle();
-          const ok = r.data && (r.data.user_id === userId || r.data.visibility === "shared");
-          if (!ok) return json({ error: "recipe_id not found or not accessible" }, 400);
+          const ok =
+            r.data &&
+            (r.data.user_id === userId || r.data.visibility === "shared");
+          if (!ok)
+            return json(
+              { error: "recipe_id not found or not accessible" },
+              400,
+            );
         }
 
         const logId = await ensureDailyLog(date ?? todayIso());
@@ -321,8 +344,18 @@ Deno.serve(async (req: Request) => {
           return json({ error: "sets must be a non-empty array" }, 400);
         }
         for (const s of sets) {
-          if (!s || typeof s.exercise !== "string" || !s.exercise.trim() || typeof s.reps !== "number") {
-            return json({ error: "each set requires exercise (string) and reps (number)" }, 400);
+          if (
+            !s ||
+            typeof s.exercise !== "string" ||
+            !s.exercise.trim() ||
+            typeof s.reps !== "number"
+          ) {
+            return json(
+              {
+                error: "each set requires exercise (string) and reps (number)",
+              },
+              400,
+            );
           }
         }
 
@@ -331,8 +364,10 @@ Deno.serve(async (req: Request) => {
           .from("workout_sessions")
           .insert({
             daily_log_id: logId,
-            name: typeof name === "string" && name.trim() ? name.trim() : "Workout",
-            duration_min: typeof duration_min === "number" ? duration_min : null,
+            name:
+              typeof name === "string" && name.trim() ? name.trim() : "Workout",
+            duration_min:
+              typeof duration_min === "number" ? duration_min : null,
           })
           .select("*")
           .single();
@@ -361,19 +396,17 @@ Deno.serve(async (req: Request) => {
             if (created.error) throw created.error;
             exerciseId = created.data.id as string;
           }
-          const setRow = await supabase
-            .from("exercise_sets")
-            .insert({
-              session_id: sessionId,
-              exercise_id: exerciseId,
-              reps: s.reps,
-              weight_kg: typeof s.weight_kg === "number" ? s.weight_kg : null,
-              rest_sec: typeof s.rest_sec === "number" ? s.rest_sec : null,
-              rir: typeof s.rir === "number" ? s.rir : null,
-              pain: s.pain === true,
-              notes: typeof s.notes === "string" ? s.notes : null,
-              position: i,
-            });
+          const setRow = await supabase.from("exercise_sets").insert({
+            session_id: sessionId,
+            exercise_id: exerciseId,
+            reps: s.reps,
+            weight_kg: typeof s.weight_kg === "number" ? s.weight_kg : null,
+            rest_sec: typeof s.rest_sec === "number" ? s.rest_sec : null,
+            rir: typeof s.rir === "number" ? s.rir : null,
+            pain: s.pain === true,
+            notes: typeof s.notes === "string" ? s.notes : null,
+            position: i,
+          });
           if (setRow.error) throw setRow.error;
           inserted++;
         }
@@ -430,7 +463,13 @@ Deno.serve(async (req: Request) => {
         if (typeof body !== "string" || !body.trim()) {
           return json({ error: "body (non-empty string) is required" }, 400);
         }
-        const allowed = ["capability_request", "feedback", "suggestion", "question", "note"];
+        const allowed = [
+          "capability_request",
+          "feedback",
+          "suggestion",
+          "question",
+          "note",
+        ];
         const { data, error } = await supabase
           .from("muse_messages")
           .insert({

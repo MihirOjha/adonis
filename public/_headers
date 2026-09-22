@@ -1,0 +1,17 @@
+# Cloudflare Pages response headers.
+# Force correct MIME types for font files so the browser decodes them instead
+# of falling back to text/html (which was causing "OTS parsing error" and
+# square icons).
+
+/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/*.ttf
+  Content-Type: font/ttf
+  Access-Control-Allow-Origin: *
+
+/*.ttf
+  Content-Type: font/ttf
+
+/*.woff
+  Content-Type: font/woff
+
+/*.woff2
+  Content-Type: font/woff2

@@ -11,18 +11,24 @@
 **Problem:** `food_entries` has `food_id` / `recipe_id` columns and the app sets them, but the Muse API accepts neither and has no name field. The coach receives anonymous macros.
 
 **Migration** (in `0005_muse_api_v2.sql`):
+
 ```sql
 alter table food_entries
   add column if not exists name text;
 ```
 
 **New payload** (all existing fields unchanged; three new optional fields):
+
 ```json
 {
   "action": "log_food",
-  "grams": 150, "calories": 250,
-  "protein": 30, "carbs": 0, "fat": 12,
-  "meal": "lunch", "date": "2026-09-21",
+  "grams": 150,
+  "calories": 250,
+  "protein": 30,
+  "carbs": 0,
+  "fat": 12,
+  "meal": "lunch",
+  "date": "2026-09-21",
   "food_id": "<uuid, optional>",
   "recipe_id": "<uuid, optional>",
   "name": "<free text, optional, e.g. 'Chicken burrito'>"
@@ -30,6 +36,7 @@ alter table food_entries
 ```
 
 **Validation:**
+
 - If `food_id` is provided, it must exist in `foods` with `user_id` = caller. Otherwise 400 `"food_id not found or not yours"`.
 - If `recipe_id` is provided, it must exist in `recipes` with `user_id` = caller OR `visibility = 'shared'`. Otherwise 400.
 - `name` is stored as-is on the entry (manual entries with no food/recipe link).
@@ -42,15 +49,18 @@ alter table food_entries
 **Problem:** the schema has `exercises`, `workout_sessions`, `exercise_sets`, but the Edge Function exposes none of it and `summary` returns no training data. The coach cannot track adherence or progression.
 
 **Migration** (in `0005_muse_api_v2.sql`):
+
 ```sql
 alter table exercise_sets
   add column if not exists rir smallint check (rir between 0 and 10),
   add column if not exists pain boolean not null default false,
   add column if not exists notes text;
 ```
+
 (`rir` = reps in reserve, the coach's intensity signal; `pain` = pain flag for the set.)
 
 **New action payload:**
+
 ```json
 {
   "action": "log_workout",
@@ -58,13 +68,28 @@ alter table exercise_sets
   "name": "Full-body A",
   "duration_min": 50,
   "sets": [
-    {"exercise": "Goblet squat", "reps": 12, "weight_kg": 16, "rir": 2, "pain": false, "rest_sec": 90, "notes": ""},
-    {"exercise": "DB bench press", "reps": 10, "weight_kg": 22.5, "rir": 1, "pain": false}
+    {
+      "exercise": "Goblet squat",
+      "reps": 12,
+      "weight_kg": 16,
+      "rir": 2,
+      "pain": false,
+      "rest_sec": 90,
+      "notes": ""
+    },
+    {
+      "exercise": "DB bench press",
+      "reps": 10,
+      "weight_kg": 22.5,
+      "rir": 1,
+      "pain": false
+    }
   ]
 }
 ```
 
 **Behavior:**
+
 1. `sets` must be a non-empty array; each set requires `exercise` (non-empty string) and `reps` (number). `weight_kg`, `rir` (0–10), `rest_sec` optional; `pain` defaults false; `notes` defaults null. Unknown fields ignored. Violations → 400.
 2. Ensure a `daily_logs` row for (`user_id`, `date ?? today`), creating it if missing (same pattern as `log_food`).
 3. Insert one `workout_sessions` row (`daily_log_id`, `name ?? 'Workout'`, `duration_min ?? null`).
@@ -76,12 +101,21 @@ alter table exercise_sets
 ## Change 3 — `summary`: full macros + workouts
 
 **Intake rows** gain carbs and fat (columns already exist; just aggregate them):
+
 ```json
-{ "date": "2026-09-21", "calories": 2100, "protein": 160, "carbs": 200, "fat": 70 }
+{
+  "date": "2026-09-21",
+  "calories": 2100,
+  "protein": 160,
+  "carbs": 200,
+  "fat": 70
+}
 ```
+
 Change the `food_entries` sub-select to `(calories, protein, carbs, fat)`.
 
 **New `workouts` key** — last 20 sessions, newest first:
+
 ```json
 "workouts": [
   {
@@ -92,6 +126,7 @@ Change the `food_entries` sub-select to `(calories, protein, carbs, fat)`.
   }
 ]
 ```
+
 Query: `workout_sessions` joined through `daily_logs` where `daily_logs.user_id` = caller, ordered by `log_date` desc, limit 20; sets joined with `exercises.name`, ordered by `position`. Sets with a deleted exercise (`exercise_id` null via `on delete set null`) must still appear — fall back to `"Unknown exercise"`, never drop the set.
 
 ---
@@ -101,9 +136,11 @@ Query: `workout_sessions` joined through `daily_logs` where `daily_logs.user_id`
 **Problem:** a mistaken food entry is permanent through the API.
 
 **New action:**
+
 ```json
 { "action": "void_food_entry", "entry_id": "<uuid>" }
 ```
+
 - Verify ownership: the entry's `daily_log` must have `user_id` = caller (join, don't trust a bare id). Not found / not owned → 404 `{ "error": "entry not found" }` (same message either way — don't leak existence).
 - Delete the row. Return `{ "deleted": "<entry_id>" }`.
 
