@@ -39,6 +39,11 @@ export default function Food() {
   const [barcode, setBarcode] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
 
+  // inline portion editor (the food currently being logged)
+  const [loggingFood, setLoggingFood] = useState<FoodRow | null>(null);
+  const [grams, setGrams] = useState("100");
+  const [meal, setMeal] = useState<MealSlot>("snack");
+
   const refresh = useCallback(async () => {
     if (!userId) return;
     const id = await getOrCreateDailyLog(userId, todayIso());
@@ -69,7 +74,7 @@ export default function Food() {
       if (!product) {
         Alert.alert(
           "Not found",
-          "No product for that barcode. Add it manually per 100 g instead.",
+          "No product for that barcode. Add it manually instead.",
         );
         setManualOpen(true);
         return;
@@ -80,7 +85,13 @@ export default function Food() {
           : product.name,
         source: "barcode",
         barcode: product.barcode,
-        per100g: product.per100g,
+        servingSizeG: 100, // Open Food Facts data is per 100 g
+        perServing: product.per100g,
+        fiber: product.per100g.fiber ?? null,
+        sodium: product.per100g.sodium ?? null,
+        iron: product.per100g.iron ?? null,
+        calcium: product.per100g.calcium ?? null,
+        vitaminD: product.per100g.vitaminD ?? null,
       });
       setBarcode("");
       await refresh();
@@ -93,11 +104,29 @@ export default function Food() {
 
   async function handleLog(food: FoodRow) {
     if (!logId) return;
-    // Simple prompt-based portion entry keeps the screen compact.
-    promptNumber("Portion (grams)", async (grams) => {
-      await logFood({ dailyLogId: logId, food, grams, meal: "snack" });
+    // Open the inline portion editor for this food.
+    setLoggingFood(food);
+    setGrams(food.serving_size_g.toString());
+    setMeal("snack");
+  }
+
+  async function confirmLog() {
+    if (!logId || !loggingFood) return;
+    const g = Number(grams);
+    if (!Number.isFinite(g) || g <= 0) {
+      Alert.alert("Invalid amount", "Enter a weight in grams greater than 0.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await logFood({ dailyLogId: logId, food: loggingFood, grams: g, meal });
+      setLoggingFood(null);
       await refresh();
-    });
+    } catch (e) {
+      Alert.alert("Couldn't log", e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -171,7 +200,7 @@ export default function Food() {
               />
             ) : (
               <Button
-                title="+ Add food manually (per 100 g)"
+                title="+ Add food manually"
                 variant="ghost"
                 onPress={() => setManualOpen(true)}
               />
@@ -183,6 +212,38 @@ export default function Food() {
               onChangeText={setQuery}
               placeholder="Search saved foods"
             />
+
+            {loggingFood ? (
+              <Card title={`Log: ${loggingFood.name}`}>
+                <Text style={styles.dim}>
+                  {Math.round(loggingFood.calories)} kcal per{" "}
+                  {loggingFood.serving_size_g} g
+                </Text>
+                <Field
+                  label="Amount eaten (g)"
+                  value={grams}
+                  onChangeText={setGrams}
+                  keyboardType="numeric"
+                />
+                <View style={styles.mealRow}>
+                  {MEALS.map((m) => (
+                    <Text
+                      key={m}
+                      onPress={() => setMeal(m)}
+                      style={[styles.mealChip, meal === m && styles.mealChipActive]}
+                    >
+                      {m}
+                    </Text>
+                  ))}
+                </View>
+                <Button title="Add to log" onPress={confirmLog} loading={busy} />
+                <Button
+                  title="Cancel"
+                  variant="ghost"
+                  onPress={() => setLoggingFood(null)}
+                />
+              </Card>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -190,7 +251,8 @@ export default function Food() {
             <View style={{ flex: 1 }}>
               <Text style={styles.foodName}>{item.name}</Text>
               <Text style={styles.dim}>
-                {Math.round(item.calories)} kcal · {item.protein}g P /100g
+                {Math.round(item.calories)} kcal · {item.protein}g P /
+                {item.serving_size_g}g
               </Text>
             </View>
             <Text style={styles.add}>Log</Text>
@@ -212,11 +274,13 @@ function ManualFoodForm({
 }: {
   onSave: (input: {
     name: string;
-    per100g: { calories: number; protein: number; carbs: number; fat: number };
+    servingSizeG: number;
+    perServing: { calories: number; protein: number; carbs: number; fat: number };
   }) => Promise<void>;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
+  const [serving, setServing] = useState("100");
   const [cal, setCal] = useState("");
   const [p, setP] = useState("");
   const [c, setC] = useState("");
@@ -224,13 +288,24 @@ function ManualFoodForm({
   const [busy, setBusy] = useState(false);
 
   return (
-    <Card title="New food (per 100 g)">
+    <Card title="New food">
       <Field
         label="Name"
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Cooked white rice"
+        placeholder="e.g. Greek yogurt"
       />
+      <Field
+        label="Label values are per ___ g (or ml)"
+        value={serving}
+        onChangeText={setServing}
+        keyboardType="numeric"
+        placeholder="100"
+      />
+      <Text style={styles.dim}>
+        Enter the numbers exactly as the nutrition label prints them for that
+        amount. No need to convert to 100 g — we do that for you.
+      </Text>
       <View style={styles.macroRow}>
         <Field
           label="kcal"
@@ -269,7 +344,8 @@ function ManualFoodForm({
           try {
             await onSave({
               name: name.trim() || "Unnamed food",
-              per100g: {
+              servingSizeG: Number(serving) > 0 ? Number(serving) : 100,
+              perServing: {
                 calories: Number(cal) || 0,
                 protein: Number(p) || 0,
                 carbs: Number(c) || 0,
@@ -284,39 +360,6 @@ function ManualFoodForm({
       <Button title="Cancel" variant="ghost" onPress={onCancel} />
     </Card>
   );
-}
-
-/**
- * Minimal cross-platform numeric prompt. On iOS uses Alert.prompt; elsewhere
- * falls back to a fixed 100 g portion (replaced by an inline form later).
- */
-function promptNumber(title: string, onValue: (n: number) => void) {
-  // Alert.prompt only exists on iOS.
-  const AlertAny = Alert as unknown as {
-    prompt?: (
-      t: string,
-      m: string | undefined,
-      cb: (v: string) => void,
-      type?: string,
-      def?: string,
-      kt?: string,
-    ) => void;
-  };
-  if (AlertAny.prompt) {
-    AlertAny.prompt(
-      title,
-      undefined,
-      (v) => {
-        const n = Number(v);
-        if (!Number.isNaN(n) && n > 0) onValue(n);
-      },
-      "plain-text",
-      "100",
-      "number-pad",
-    );
-  } else {
-    onValue(100);
-  }
 }
 
 const styles = StyleSheet.create({
@@ -354,4 +397,19 @@ const styles = StyleSheet.create({
   add: { color: colors.primary, fontWeight: "800" },
   macroRow: { flexDirection: "row", gap: spacing.sm },
   macroInput: { minWidth: 0 },
+  mealRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
+  mealChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mealChipActive: {
+    backgroundColor: colors.primary,
+    color: colors.bg,
+    fontWeight: "600",
+  },
 });

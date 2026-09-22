@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { FoodEntryRow, FoodRow, MealSlot } from "@/lib/database.types";
-import { scaleNutrition, sumEntries, type Macros } from "@/domain";
-import { foodToNutrition } from "./food";
+import { scaleFromServing, sumEntries, type Macros } from "@/domain";
+import { foodToServing } from "./food";
 
 /** Today's date as an ISO YYYY-MM-DD string in local time. */
 export function todayIso(): string {
@@ -57,7 +57,11 @@ export async function logFood(params: {
   grams: number;
   meal: MealSlot;
 }): Promise<FoodEntryRow> {
-  const scaled = scaleNutrition(foodToNutrition(params.food), params.grams);
+  const scaled = scaleFromServing(
+    foodToServing(params.food),
+    params.food.serving_size_g,
+    params.grams,
+  );
   const { data, error } = await supabase
     .from("food_entries")
     .insert({

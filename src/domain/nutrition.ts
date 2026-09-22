@@ -21,6 +21,28 @@ export function scaleNutrition(
 }
 
 /**
+ * Scale nutrition given for an arbitrary reference amount (a label's
+ * "per 50 g" or "per serving = 30 g") to the grams actually eaten.
+ *
+ * @param perServing Calories + macros as printed on the label.
+ * @param servingSizeG The reference weight those values describe (the label's basis).
+ * @param gramsEaten The amount the user actually ate, in grams.
+ */
+export function scaleFromServing(
+  perServing: { calories: number } & Macros,
+  servingSizeG: number,
+  gramsEaten: number,
+): { calories: number } & Macros {
+  const factor = gramsEaten / servingSizeG;
+  return {
+    calories: perServing.calories * factor,
+    protein: perServing.protein * factor,
+    carbs: perServing.carbs * factor,
+    fat: perServing.fat * factor,
+  };
+}
+
+/**
  * Sum a list of {calories + macros} entries into a single total.
  */
 export function sumEntries(

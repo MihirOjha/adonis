@@ -1,19 +1,18 @@
 import { supabase } from "@/lib/supabase";
 import type { FoodRow, FoodSource } from "@/lib/database.types";
-import type { NutritionPer100g } from "@/domain";
+import type { Macros } from "@/domain";
 
-/** Map a DB food row to a domain per-100 g nutrition profile. */
-export function foodToNutrition(food: FoodRow): NutritionPer100g {
+/**
+ * Map a DB food row to its nutrition per SERVING (the label's reference
+ * amount, serving_size_g). The stored calories/macros are the values for that
+ * serving size, exactly as the label printed them.
+ */
+export function foodToServing(food: FoodRow): { calories: number } & Macros {
   return {
     calories: food.calories,
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
-    fiber: food.fiber ?? undefined,
-    sodium: food.sodium ?? undefined,
-    iron: food.iron ?? undefined,
-    calcium: food.calcium ?? undefined,
-    vitaminD: food.vitamin_d ?? undefined,
   };
 }
 
@@ -49,7 +48,15 @@ export interface UpsertFoodInput {
   name: string;
   source: FoodSource;
   barcode?: string | null;
-  per100g: NutritionPer100g;
+  /** The label's reference weight in grams (e.g. 50 for "per 50 g"). Default 100. */
+  servingSizeG?: number;
+  /** Nutrition values AS PRINTED on the label, for the given servingSizeG. */
+  perServing: { calories: number } & Macros;
+  fiber?: number | null;
+  sodium?: number | null;
+  iron?: number | null;
+  calcium?: number | null;
+  vitaminD?: number | null;
 }
 
 /** Save a new food to the user's verified personal database. */
@@ -57,7 +64,7 @@ export async function createFood(
   userId: string,
   input: UpsertFoodInput,
 ): Promise<FoodRow> {
-  const { per100g } = input;
+  const { perServing } = input;
   const { data, error } = await supabase
     .from("foods")
     .insert({
@@ -65,15 +72,16 @@ export async function createFood(
       name: input.name,
       source: input.source,
       barcode: input.barcode ?? null,
-      calories: per100g.calories,
-      protein: per100g.protein,
-      carbs: per100g.carbs,
-      fat: per100g.fat,
-      fiber: per100g.fiber ?? null,
-      sodium: per100g.sodium ?? null,
-      iron: per100g.iron ?? null,
-      calcium: per100g.calcium ?? null,
-      vitamin_d: per100g.vitaminD ?? null,
+      serving_size_g: input.servingSizeG ?? 100,
+      calories: perServing.calories,
+      protein: perServing.protein,
+      carbs: perServing.carbs,
+      fat: perServing.fat,
+      fiber: input.fiber ?? null,
+      sodium: input.sodium ?? null,
+      iron: input.iron ?? null,
+      calcium: input.calcium ?? null,
+      vitamin_d: input.vitaminD ?? null,
     })
     .select("*")
     .single();

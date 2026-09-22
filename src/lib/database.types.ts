@@ -61,6 +61,7 @@ export type FoodRow = {
   name: string;
   source: FoodSource;
   barcode: string | null;
+  serving_size_g: number;
   calories: number;
   protein: number;
   carbs: number;
