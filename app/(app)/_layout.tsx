@@ -42,6 +42,24 @@ function ThemedTabs() {
         }}
       />
       <Tabs.Screen
+        name="recipes"
+        options={{
+          title: "Recipes",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="training"
+        options={{
+          title: "Training",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="barbell-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="body"
         options={{
           title: "Body",

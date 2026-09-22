@@ -69,6 +69,10 @@ export default function Dashboard() {
   const totals = data?.totals ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
   const calRemaining = target ? target.calories - totals.calories : null;
   const proteinRemaining = target ? target.protein - totals.protein : null;
+  const calProgress =
+    target && target.calories > 0
+      ? Math.min(totals.calories / target.calories, 1)
+      : 0;
 
   return (
     <ScrollView
@@ -82,75 +86,102 @@ export default function Dashboard() {
         />
       }
     >
-      <Card title="Today's target">
+      {/* Hero: calories remaining + ring */}
+      <Card>
         {target ? (
-          <View style={styles.row}>
-            <Stat value={`${target.calories}`} label="kcal goal" />
-            <Stat
-              value={`${target.protein}g`}
-              label="protein"
-              accent={colors.primary}
-            />
-            <Stat value={`${target.carbs}g`} label="carbs" />
-            <Stat value={`${target.fat}g`} label="fat" />
+          <View style={styles.heroRow}>
+            <View style={styles.ringWrap}>
+              <ProgressRing progress={calProgress} size={120} />
+              <View style={styles.ringCenter}>
+                <Text style={styles.ringValue}>
+                  {Math.max(Math.round(calRemaining ?? 0), 0)}
+                </Text>
+                <Text style={styles.ringLabel}>kcal left</Text>
+              </View>
+            </View>
+            <View style={styles.heroStats}>
+              <HeroStat label="Goal" value={`${target.calories}`} />
+              <HeroStat label="Eaten" value={`${Math.round(totals.calories)}`} />
+              <HeroStat
+                label="Protein left"
+                value={
+                  proteinRemaining != null && proteinRemaining > 0
+                    ? `${Math.round(proteinRemaining)}g`
+                    : "0g"
+                }
+                accent={colors.primary}
+              />
+            </View>
           </View>
         ) : (
-          <Text style={styles.dim}>
-            No target yet. Open the Coach tab and tap “Recalculate” to generate
-            your first adaptive target.
-          </Text>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={styles.cardTitle}>Today's target</Text>
+            <Text style={styles.dim}>
+              No target yet. Open the Coach tab and tap "Recalculate" to generate
+              your first adaptive target.
+            </Text>
+          </View>
         )}
       </Card>
 
-      <Card title="Eaten so far">
-        <View style={styles.row}>
-          <Stat value={`${Math.round(totals.calories)}`} label="kcal" />
-          <Stat
-            value={`${Math.round(totals.protein)}g`}
-            label="protein"
-            accent={colors.primary}
+      {/* Macros */}
+      {target ? (
+        <Card>
+          <Text style={styles.cardTitle}>Macros</Text>
+          <MacroBar
+            label="Protein"
+            eaten={totals.protein}
+            goal={target.protein}
+            color={colors.primary}
           />
-          <Stat value={`${Math.round(totals.carbs)}g`} label="carbs" />
-          <Stat value={`${Math.round(totals.fat)}g`} label="fat" />
-        </View>
-        {calRemaining !== null ? (
-          <Text style={styles.remaining}>
-            {calRemaining >= 0
-              ? `${calRemaining} kcal remaining`
-              : `${Math.abs(calRemaining)} kcal over`}
-            {proteinRemaining !== null && proteinRemaining > 0
-              ? ` · ${Math.round(proteinRemaining)}g protein to go`
-              : ""}
-          </Text>
-        ) : null}
-      </Card>
+          <MacroBar
+            label="Carbs"
+            eaten={totals.carbs}
+            goal={target.carbs}
+            color={colors.success}
+          />
+          <MacroBar
+            label="Fat"
+            eaten={totals.fat}
+            goal={target.fat}
+            color={colors.warn}
+          />
+        </Card>
+      ) : null}
 
-      <Card title="Weight trend">
+      {/* Weight trend */}
+      <Card>
+        <Text style={styles.cardTitle}>Weight trend</Text>
         {data?.trendKg != null ? (
-          <View style={styles.row}>
-            <Stat
-              value={`${data.trendKg.toFixed(1)} kg`}
-              label="trend weight"
-            />
-            <Stat
-              value={
-                data.slopeKgPerWeek == null
+          <View style={styles.trendRow}>
+            <View>
+              <Text style={styles.trendValue}>{data.trendKg.toFixed(1)} kg</Text>
+              <Text style={styles.dim}>smoothed trend</Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text
+                style={[
+                  styles.trendSlope,
+                  {
+                    color:
+                      data.slopeKgPerWeek == null
+                        ? colors.textDim
+                        : data.slopeKgPerWeek < 0
+                        ? colors.success
+                        : colors.warn,
+                  },
+                ]}
+              >
+                {data.slopeKgPerWeek == null
                   ? "—"
-                  : `${data.slopeKgPerWeek >= 0 ? "+" : ""}${data.slopeKgPerWeek.toFixed(2)}`
-              }
-              label="kg / week"
-              accent={
-                data.slopeKgPerWeek == null
-                  ? colors.textDim
-                  : data.slopeKgPerWeek < 0
-                    ? colors.success
-                    : colors.warn
-              }
-            />
+                  : `${data.slopeKgPerWeek >= 0 ? "+" : ""}${data.slopeKgPerWeek.toFixed(2)} kg/wk`}
+              </Text>
+              <Text style={styles.dim}>rate of change</Text>
+            </View>
           </View>
         ) : (
           <Text style={styles.dim}>
-            No weigh-ins yet. Add one on the Body tab (or sync your scale).
+            No weigh-ins yet. Add one on the Body tab.
           </Text>
         )}
       </Card>
@@ -158,10 +189,132 @@ export default function Dashboard() {
   );
 }
 
+function HeroStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <View style={styles.heroStat}>
+      <Text style={[styles.heroStatValue, accent ? { color: accent } : null]}>
+        {value}
+      </Text>
+      <Text style={styles.dim}>{label}</Text>
+    </View>
+  );
+}
+
+function MacroBar({
+  label,
+  eaten,
+  goal,
+  color,
+}: {
+  label: string;
+  eaten: number;
+  goal: number;
+  color: string;
+}) {
+  const pct = goal > 0 ? Math.min(eaten / goal, 1) : 0;
+  return (
+    <View style={styles.macroBarWrap}>
+      <View style={styles.macroBarHeader}>
+        <Text style={styles.macroBarLabel}>{label}</Text>
+        <Text style={styles.dim}>
+          {Math.round(eaten)} / {goal}g
+        </Text>
+      </View>
+      <View style={styles.macroBarTrack}>
+        <View
+          style={[
+            styles.macroBarFill,
+            { width: `${pct * 100}%`, backgroundColor: color },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+/** A simple SVG-free progress ring using a bordered circle + overlay. */
+function ProgressRing({
+  progress,
+  size,
+}: {
+  progress: number;
+  size: number;
+}) {
+  const p = Math.max(0, Math.min(progress, 1));
+  const deg = p * 360;
+  return (
+    <View
+      style={[
+        styles.ring,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderColor: colors.surfaceAlt,
+        },
+      ]}
+    >
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            borderRadius: size / 2,
+            // Conic-like fill via a rotated half overlay (works on web + native).
+            overflow: "hidden",
+          },
+        ]}
+      >
+        <View
+          style={{
+            position: "absolute",
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: 10,
+            borderColor: colors.primary,
+            borderTopColor: deg > 0 ? colors.primary : "transparent",
+            transform: [{ rotate: `${deg - 45}deg` }],
+            opacity: 0.9,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.md, gap: spacing.md },
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  dim: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
-  remaining: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  cardTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  dim: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
+  heroRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
+  ringWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
+  ring: { borderWidth: 10 },
+  ringCenter: { position: "absolute", alignItems: "center" },
+  ringValue: { color: colors.text, fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  ringLabel: { color: colors.textDim, fontSize: 12 },
+  heroStats: { flex: 1, gap: spacing.sm },
+  heroStat: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  heroStatValue: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  macroBarWrap: { gap: spacing.xs },
+  macroBarHeader: { flexDirection: "row", justifyContent: "space-between" },
+  macroBarLabel: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  macroBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceAlt,
+    overflow: "hidden",
+  },
+  macroBarFill: { height: 8, borderRadius: 4 },
+  trendRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  trendValue: { color: colors.text, fontSize: 24, fontWeight: "800" },
+  trendSlope: { fontSize: 17, fontWeight: "700" },
 });

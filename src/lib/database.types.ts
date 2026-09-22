@@ -136,6 +136,18 @@ export type RecipeRow = {
   created_at: string;
 };
 
+export type RecipeIngredientRow = {
+  id: string;
+  recipe_id: string;
+  food_id: string | null;
+  name: string;
+  raw_grams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
 export type InboxNoteRow = {
   id: string;
   user_id: string;
@@ -163,6 +175,35 @@ export type MuseTokenRow = {
   revoked_at: string | null;
 };
 
+export type ExerciseRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;
+  muscle_group: string | null;
+};
+
+export type WorkoutSessionRow = {
+  id: string;
+  daily_log_id: string;
+  name: string;
+  duration_min: number | null;
+  created_at: string;
+};
+
+export type ExerciseSetRow = {
+  id: string;
+  session_id: string;
+  exercise_id: string | null;
+  reps: number | null;
+  weight_kg: number | null;
+  rest_sec: number | null;
+  rir: number | null;
+  pain: boolean;
+  notes: string | null;
+  position: number;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -174,9 +215,13 @@ export interface Database {
       body_metrics: Table<BodyMetricRow>;
       coach_targets: Table<CoachTargetRow>;
       recipes: Table<RecipeRow>;
+      recipe_ingredients: Table<RecipeIngredientRow>;
       inbox_notes: Table<InboxNoteRow>;
       share_permissions: Table<SharePermissionRow>;
       muse_tokens: Table<MuseTokenRow>;
+      exercises: Table<ExerciseRow>;
+      workout_sessions: Table<WorkoutSessionRow>;
+      exercise_sets: Table<ExerciseSetRow>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
