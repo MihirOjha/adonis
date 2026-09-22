@@ -38,6 +38,7 @@ export default function Profile() {
   const [sex, setSex] = useState<Sex>("male");
   const [goal, setGoal] = useState<Goal>("maintain");
   const [activity, setActivity] = useState<ActivityLevel>("moderate");
+  const [themeColor, setThemeColor] = useState("");
   const [busy, setBusy] = useState(false);
   const [tokens, setTokens] = useState<MuseTokenRow[]>([]);
   const [newToken, setNewToken] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export default function Profile() {
       setSex(p.sex ?? "male");
       setGoal(p.goal);
       setActivity(p.activity);
+      setThemeColor(p.theme_color ?? "");
     }
     setTokens(await listMuseTokens(userId));
   }, [userId]);
@@ -73,6 +75,7 @@ export default function Profile() {
         sex,
         goal,
         activity,
+        theme_color: themeColor.trim() || null,
       });
       Alert.alert("Saved", "Your profile has been updated.");
       await refresh();
@@ -138,11 +141,31 @@ export default function Profile() {
           onChange={setActivity}
         />
         <Chips label="Goal" options={GOALS} value={goal} onChange={setGoal} />
+        <View style={{ gap: spacing.xs }}>
+          <Text style={styles.chipLabel}>Accent color (hex)</Text>
+          <View style={styles.colorRow}>
+            <View
+              style={[
+                styles.colorSwatch,
+                { backgroundColor: /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(themeColor.trim()) ? themeColor.trim() : colors.primary },
+              ]}
+            />
+            <View style={{ flex: 1 }}>
+              <Field
+                label=""
+                value={themeColor}
+                onChangeText={setThemeColor}
+                placeholder="#4CC2FF (default)"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+          <Text style={styles.dim}>
+            Personalize the app's accent. Leave blank for the default. Changes
+            apply after saving and reopening the app.
+          </Text>
+        </View>
         <Button title="Save profile" onPress={save} loading={busy} />
-        <Text style={styles.dim}>
-          These feed the coach's starting estimate before it becomes fully
-          adaptive.
-        </Text>
       </Card>
 
       <Card title="Muse access">
@@ -243,6 +266,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
     fontWeight: "700",
+  },
+  colorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  colorSwatch: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tokenBox: {
     backgroundColor: colors.surfaceAlt,

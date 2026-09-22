@@ -1,8 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { colors } from "@/ui/theme";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { getProfile } from "@/data/profile";
+import { ThemeProvider, useTheme } from "@/ui/ThemeProvider";
+import { colors as defaultColors } from "@/ui/theme";
 
-export default function AppTabs() {
+function ThemedTabs() {
+  const colors = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -64,5 +69,24 @@ export default function AppTabs() {
         }}
       />
     </Tabs>
+  );
+}
+
+export default function AppTabs() {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+  const [accent, setAccent] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    getProfile(userId)
+      .then((p) => setAccent(p?.theme_color ?? null))
+      .catch(() => setAccent(null));
+  }, [userId]);
+
+  return (
+    <ThemeProvider accent={accent}>
+      <ThemedTabs />
+    </ThemeProvider>
   );
 }

@@ -1,7 +1,7 @@
 ================================================================================
 ADONIS — MUSE COACH API · INTEGRATION GUIDE
 ================================================================================
-CONTRACT_VERSION: 2
+CONTRACT_VERSION: 3
 This document tells Muse (an AI coach) how to read and write one user's Adonis
 data through a single, scoped, secure endpoint. Share this whole file with Muse.
 Always confirm you're on the current contract by calling the `version` action.
@@ -53,10 +53,12 @@ There are exactly EIGHT actions. Do not guess others; anything else returns
 Purpose: get the user's current state. ALWAYS call this first.
 Payload:  { "action": "summary" }
 Returns:  {
-            "profile":       { ...user profile row... } | null,
+            "profile":       { ...user profile row (incl. theme_color) ... } | null,
             "weights":       [ { "metric_date", "weight_kg", "body_fat", "waist_cm" }, ... ],   // last 90 days, newest first
-            "intake":        [ { "date", "calories", "protein" }, ... ],                        // last 30 days, newest first
-            "currentTarget": { ...latest coach_targets row... } | null
+            "intake":        [ { "date", "calories", "protein", "carbs", "fat" }, ... ],        // last 30 days, full macros
+            "workouts":      [ { "date", "name", "duration_min", "sets": [ { "exercise", "reps", "weight_kg", "rir", "pain", "rest_sec", "notes" }, ... ] }, ... ],  // last 20 sessions
+            "currentTarget": { ...latest coach_targets row... } | null,
+            "targetHistory": [ { ...coach_targets rows... }, ... ]                              // last 10, newest first
           }
 
 --- 3.2 set_target  (WRITE) ---------------------------------------------------
@@ -92,22 +94,54 @@ Purpose: append a food entry to a day's log.
 Required (numbers): grams, calories
 Optional:           protein, carbs, fat (numbers, default 0),
                     meal ("breakfast" | "lunch" | "dinner" | "snack", default "snack"),
-                    date (YYYY-MM-DD, default today)
+                    date (YYYY-MM-DD, default today),
+                    food_id (uuid — must be one of the user's own foods),
+                    recipe_id (uuid — own recipe or a shared one),
+                    name (free text, e.g. "Chicken burrito" — for unlinked entries)
 Payload:  {
             "action": "log_food", "grams": 150, "calories": 250,
-            "protein": 30, "carbs": 0, "fat": 12, "meal": "lunch", "date": "2026-09-21"
+            "protein": 30, "carbs": 0, "fat": 12, "meal": "lunch", "date": "2026-09-21",
+            "name": "Chicken burrito"
           }
 Returns:  { "entry": { ...row... } }
-Notes:    Auto-creates the daily log for that date if it doesn't exist.
+Errors:   400 if food_id isn't the user's own food, or recipe_id isn't
+          own/shared. Auto-creates the daily log for that date if missing.
 
---- 3.6 version  (READ) -------------------------------------------------------
+--- 3.6 log_workout  (WRITE) --------------------------------------------------
+Purpose: record a training session with its sets.
+Required:           sets (non-empty array). Each set: exercise (string), reps (number).
+Optional:           date (YYYY-MM-DD, default today), name (string, default "Workout"),
+                    duration_min (number). Per-set optional: weight_kg, rir (0-10),
+                    rest_sec, pain (bool, default false), notes (string).
+Payload:  {
+            "action": "log_workout", "date": "2026-09-21", "name": "Full-body A", "duration_min": 50,
+            "sets": [
+              { "exercise": "Goblet squat", "reps": 12, "weight_kg": 16, "rir": 2, "pain": false },
+              { "exercise": "DB bench press", "reps": 10, "weight_kg": 22.5, "rir": 1 }
+            ]
+          }
+Returns:  { "session": { ...row... }, "sets": <count inserted> }
+Notes:    Exercises are find-or-created per user by name (case/space-insensitive).
+          rir = reps in reserve (intensity signal); pain flags a painful set.
+
+--- 3.7 void_food_entry  (WRITE) ----------------------------------------------
+Purpose: delete a mistaken food entry.
+Required (string):  entry_id (uuid)
+Payload:  { "action": "void_food_entry", "entry_id": "<uuid>" }
+Returns:  { "deleted": "<entry_id>" }
+Errors:   404 { "error": "entry not found" } whether it doesn't exist OR isn't
+          yours (existence is not leaked).
+Notes:    To correct a WEIGHT entry, just call log_weight again for the same
+          date — it upserts per (user, date).
+
+--- 3.8 version  (READ) -------------------------------------------------------
 Purpose: confirm you're on the current contract before relying on new fields.
 Payload:  { "action": "version" }
 Returns:  { "contract_version": "2", "actions": [ ...supported action names... ] }
 Notes:    Call this at the start of a session. If contract_version is newer than
           the MUSE_API.txt you have, ask the user to re-paste the latest file.
 
---- 3.7 send_message  (WRITE) -------------------------------------------------
+--- 3.9 send_message  (WRITE) -------------------------------------------------
 Purpose: push a message to the dev/user (the async shared channel). Use this for
          capability requests, feedback, suggestions, and questions.
 Required (string):  body (non-empty)
@@ -121,7 +155,7 @@ Payload:  {
 Returns:  { "message": { "id", "kind", "status", "created_at" } }
 Notes:    Use kind="capability_request" when you need something you can't do yet.
 
---- 3.8 list_messages  (READ) -------------------------------------------------
+--- 3.10 list_messages  (READ) -------------------------------------------------
 Purpose: pull the conversation — your own messages plus dev/user replies.
 Optional:           limit (number, default 50)
 Payload:  { "action": "list_messages", "limit": 50 }
@@ -135,7 +169,7 @@ Notes:    author is "muse" | "dev" | "user". Newest first. Check this for replie
   401 { "error": "Missing Authorization header" }  -> no token sent
   401 { "error": "Invalid token" }                 -> token wrong or revoked
   400 { "error": "<field> is required ..." }       -> missing/invalid required field
-  400 { "error": "Unknown action: X" }             -> action not one of the eight
+  400 { "error": "Unknown action: X" }             -> action not one of the ten
   500 { "error": "<message>" }                     -> server error
 
 --------------------------------------------------------------------------------

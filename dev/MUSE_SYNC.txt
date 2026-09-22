@@ -108,6 +108,12 @@ single source of truth + a lightweight change protocol.
 ================================================================================
 PART 4 — CHANGE LOG (newest first)
 ================================================================================
+  2026-09-21  v3  Implemented Muse's v2 spec (dev/muse-v2-spec.md) with
+                  Appendix C hardening. New: log_workout, void_food_entry;
+                  log_food gains food_id/recipe_id/name; summary gains full
+                  macros (carbs/fat), workouts, and targetHistory. Security:
+                  asUser() scoping helper + corrected RLS comments; exercise
+                  name dedup index. Migration 0005. profiles.theme_color added.
   2026-09-21  v2  Added async message channel + contract versioning.
                   New actions: version, send_message, list_messages.
                   New table: muse_messages (shared Muse<->dev board).

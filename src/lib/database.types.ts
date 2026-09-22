@@ -39,6 +39,7 @@ export type ProfileRow = {
   activity: ActivityLevel;
   goal: Goal;
   muse_account_ref: string | null;
+  theme_color: string | null;
   created_at: string;
   updated_at: string;
 };
