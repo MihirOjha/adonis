@@ -36,9 +36,14 @@ export async function createRecipe(
     visibility?: "private" | "shared";
   },
 ): Promise<RecipeRow> {
-  if (input.ingredients.length === 0) throw new Error("Add at least one ingredient.");
+  if (input.ingredients.length === 0)
+    throw new Error("Add at least one ingredient.");
   const computed = computeCookedRecipe(
-    input.ingredients.map((i) => ({ name: i.name, per100g: i.per100g, rawGrams: i.rawGrams })),
+    input.ingredients.map((i) => ({
+      name: i.name,
+      per100g: i.per100g,
+      rawGrams: i.rawGrams,
+    })),
     input.cookedWeightG,
   );
 
@@ -86,7 +91,9 @@ export async function listRecipes(userId: string): Promise<RecipeRow[]> {
 }
 
 /** Get a recipe with its ingredients. */
-export async function getRecipe(recipeId: string): Promise<RecipeWithIngredients | null> {
+export async function getRecipe(
+  recipeId: string,
+): Promise<RecipeWithIngredients | null> {
   const { data, error } = await supabase
     .from("recipes")
     .select("*, recipe_ingredients(*)")
@@ -103,7 +110,10 @@ export async function setRecipeVisibility(
   recipeId: string,
   visibility: "private" | "shared",
 ): Promise<void> {
-  const { error } = await supabase.from("recipes").update({ visibility }).eq("id", recipeId);
+  const { error } = await supabase
+    .from("recipes")
+    .update({ visibility })
+    .eq("id", recipeId);
   if (error) throw error;
 }
 
@@ -114,7 +124,12 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
 }
 
 /** Compute the per-100g-cooked profile for portioning a recipe. */
-export function recipePer100g(recipe: RecipeRow): { calories: number; protein: number; carbs: number; fat: number } {
+export function recipePer100g(recipe: RecipeRow): {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+} {
   const factor = 100 / recipe.cooked_weight_g;
   return {
     calories: recipe.total_calories * factor,

@@ -49,7 +49,10 @@ export default function Training() {
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const [s, ex] = await Promise.all([listWorkouts(userId), listExercises(userId)]);
+    const [s, ex] = await Promise.all([
+      listWorkouts(userId),
+      listExercises(userId),
+    ]);
     setSessions(s);
     setExerciseNames(ex.map((e) => e.name));
   }, [userId]);
@@ -67,14 +70,23 @@ export default function Training() {
   function addExercise(name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
-    setExercises((prev) => [...prev, { key: nextKey(), name: trimmed, sets: [] }]);
+    setExercises((prev) => [
+      ...prev,
+      { key: nextKey(), name: trimmed, sets: [] },
+    ]);
   }
 
   function addSet(exKey: string) {
     setExercises((prev) =>
       prev.map((ex) =>
         ex.key === exKey
-          ? { ...ex, sets: [...ex.sets, { key: nextKey(), exercise: ex.name, reps: 0 }] }
+          ? {
+              ...ex,
+              sets: [
+                ...ex.sets,
+                { key: nextKey(), exercise: ex.name, reps: 0 },
+              ],
+            }
           : ex,
       ),
     );
@@ -84,7 +96,12 @@ export default function Training() {
     setExercises((prev) =>
       prev.map((ex) =>
         ex.key === exKey
-          ? { ...ex, sets: ex.sets.map((s) => (s.key === setKey ? { ...s, ...patch } : s)) }
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.key === setKey ? { ...s, ...patch } : s,
+              ),
+            }
           : ex,
       ),
     );
@@ -92,7 +109,11 @@ export default function Training() {
 
   function removeSet(exKey: string, setKey: string) {
     setExercises((prev) =>
-      prev.map((ex) => (ex.key === exKey ? { ...ex, sets: ex.sets.filter((s) => s.key !== setKey) } : ex)),
+      prev.map((ex) =>
+        ex.key === exKey
+          ? { ...ex, sets: ex.sets.filter((s) => s.key !== setKey) }
+          : ex,
+      ),
     );
   }
 
@@ -141,24 +162,41 @@ export default function Training() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {logging ? (
           <Card>
-            <Field label="Workout name" value={workoutName} onChangeText={setWorkoutName} />
+            <Field
+              label="Workout name"
+              value={workoutName}
+              onChangeText={setWorkoutName}
+            />
             {exercises.map((ex) => (
               <View key={ex.key} style={styles.exerciseBlock}>
                 <View style={styles.exerciseHeader}>
                   <Text style={styles.exerciseName}>{ex.name}</Text>
                   <Pressable onPress={() => removeExercise(ex.key)} hitSlop={8}>
-                    <Ionicons name="close-circle-outline" size={20} color={colors.textDim} />
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={20}
+                      color={colors.textDim}
+                    />
                   </Pressable>
                 </View>
                 {/* set header */}
                 <View style={styles.setHeaderRow}>
-                  <Text style={[styles.setHeaderText, styles.colReps]}>Reps</Text>
-                  <Text style={[styles.setHeaderText, styles.colWeight]}>kg</Text>
+                  <Text style={[styles.setHeaderText, styles.colReps]}>
+                    Reps
+                  </Text>
+                  <Text style={[styles.setHeaderText, styles.colWeight]}>
+                    kg
+                  </Text>
                   <Text style={[styles.setHeaderText, styles.colRir]}>RIR</Text>
-                  <Text style={[styles.setHeaderText, styles.colPain]}>Pain</Text>
+                  <Text style={[styles.setHeaderText, styles.colPain]}>
+                    Pain
+                  </Text>
                   <View style={styles.colDel} />
                 </View>
                 {ex.sets.map((s) => (
@@ -166,7 +204,9 @@ export default function Training() {
                     <View style={styles.colReps}>
                       <Field
                         value={s.reps > 0 ? String(s.reps) : ""}
-                        onChangeText={(v) => updateSet(ex.key, s.key, { reps: Number(v) || 0 })}
+                        onChangeText={(v) =>
+                          updateSet(ex.key, s.key, { reps: Number(v) || 0 })
+                        }
                         keyboardType="number-pad"
                         style={styles.setInput}
                       />
@@ -174,7 +214,11 @@ export default function Training() {
                     <View style={styles.colWeight}>
                       <Field
                         value={s.weightKg != null ? String(s.weightKg) : ""}
-                        onChangeText={(v) => updateSet(ex.key, s.key, { weightKg: v === "" ? null : Number(v) })}
+                        onChangeText={(v) =>
+                          updateSet(ex.key, s.key, {
+                            weightKg: v === "" ? null : Number(v),
+                          })
+                        }
                         keyboardType="decimal-pad"
                         style={styles.setInput}
                       />
@@ -182,33 +226,63 @@ export default function Training() {
                     <View style={styles.colRir}>
                       <Field
                         value={s.rir != null ? String(s.rir) : ""}
-                        onChangeText={(v) => updateSet(ex.key, s.key, { rir: v === "" ? null : Number(v) })}
+                        onChangeText={(v) =>
+                          updateSet(ex.key, s.key, {
+                            rir: v === "" ? null : Number(v),
+                          })
+                        }
                         keyboardType="number-pad"
                         style={styles.setInput}
                       />
                     </View>
                     <View style={styles.colPain}>
-                      <Pressable onPress={() => updateSet(ex.key, s.key, { pain: !s.pain })} style={styles.painToggle}>
+                      <Pressable
+                        onPress={() =>
+                          updateSet(ex.key, s.key, { pain: !s.pain })
+                        }
+                        style={styles.painToggle}
+                      >
                         <Ionicons
-                          name={s.pain ? "alert-circle" : "alert-circle-outline"}
+                          name={
+                            s.pain ? "alert-circle" : "alert-circle-outline"
+                          }
                           size={20}
                           color={s.pain ? colors.danger : colors.textDim}
                         />
                       </Pressable>
                     </View>
                     <View style={styles.colDel}>
-                      <Pressable onPress={() => removeSet(ex.key, s.key)} hitSlop={8}>
-                        <Ionicons name="remove-circle-outline" size={20} color={colors.textDim} />
+                      <Pressable
+                        onPress={() => removeSet(ex.key, s.key)}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="remove-circle-outline"
+                          size={20}
+                          color={colors.textDim}
+                        />
                       </Pressable>
                     </View>
                   </View>
                 ))}
-                <Button title="+ Add set" variant="ghost" onPress={() => addSet(ex.key)} />
+                <Button
+                  title="+ Add set"
+                  variant="ghost"
+                  onPress={() => addSet(ex.key)}
+                />
               </View>
             ))}
             <AddExercise onAdd={addExercise} suggestions={exerciseNames} />
-            <Button title="Finish workout" onPress={finishWorkout} loading={busy} />
-            <Button title="Cancel" variant="ghost" onPress={() => setLogging(false)} />
+            <Button
+              title="Finish workout"
+              onPress={finishWorkout}
+              loading={busy}
+            />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setLogging(false)}
+            />
           </Card>
         ) : (
           <>
@@ -216,21 +290,28 @@ export default function Training() {
             <Card>
               <Text style={styles.cardTitle}>Recent sessions</Text>
               {sessions.length === 0 ? (
-                <Text style={styles.dim}>No workouts yet. Start your first one above.</Text>
+                <Text style={styles.dim}>
+                  No workouts yet. Start your first one above.
+                </Text>
               ) : (
                 sessions.map((s) => (
                   <View key={s.id} style={styles.sessionRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.sessionName}>{s.name}</Text>
                       <Text style={styles.dim}>
-                        {s.date} · {s.sets.length} sets{s.durationMin ? ` · ${s.durationMin} min` : ""}
+                        {s.date} · {s.sets.length} sets
+                        {s.durationMin ? ` · ${s.durationMin} min` : ""}
                       </Text>
                       <Text style={styles.sessionSets} numberOfLines={2}>
                         {summarizeSets(s)}
                       </Text>
                     </View>
                     <Pressable onPress={() => handleDelete(s.id)} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={18} color={colors.textDim} />
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={colors.textDim}
+                      />
                     </Pressable>
                   </View>
                 ))
@@ -245,7 +326,8 @@ export default function Training() {
 
 function summarizeSets(s: SessionWithSets): string {
   const byExercise = new Map<string, number>();
-  for (const set of s.sets) byExercise.set(set.exercise, (byExercise.get(set.exercise) ?? 0) + 1);
+  for (const set of s.sets)
+    byExercise.set(set.exercise, (byExercise.get(set.exercise) ?? 0) + 1);
   return Array.from(byExercise.entries())
     .map(([name, count]) => `${name} ×${count}`)
     .join(" · ");
@@ -260,7 +342,9 @@ function AddExercise({
 }) {
   const [value, setValue] = useState("");
   const matches = value.trim()
-    ? suggestions.filter((n) => n.toLowerCase().includes(value.trim().toLowerCase())).slice(0, 5)
+    ? suggestions
+        .filter((n) => n.toLowerCase().includes(value.trim().toLowerCase()))
+        .slice(0, 5)
     : [];
 
   return (
@@ -272,7 +356,14 @@ function AddExercise({
         placeholder="e.g. Goblet squat"
       />
       {matches.map((n) => (
-        <Pressable key={n} onPress={() => { onAdd(n); setValue(""); }} style={styles.suggestion}>
+        <Pressable
+          key={n}
+          onPress={() => {
+            onAdd(n);
+            setValue("");
+          }}
+          style={styles.suggestion}
+        >
           <Text style={styles.suggestionText}>{n}</Text>
         </Pressable>
       ))}
@@ -299,7 +390,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
   },
-  exerciseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  exerciseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   exerciseName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   setHeaderRow: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
   setHeaderText: { color: colors.textDim, fontSize: 11, fontWeight: "600" },

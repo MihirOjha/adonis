@@ -33,9 +33,8 @@ export function BarcodeScanner({
 
     (async () => {
       try {
-        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import(
-          "html5-qrcode"
-        );
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } =
+          await import("html5-qrcode");
         if (cancelled) return;
 
         const scanner = new Html5Qrcode(regionId.current, {
@@ -57,8 +56,13 @@ export function BarcodeScanner({
           (decodedText: string) => {
             if (startedRef.current) return;
             startedRef.current = true;
-            scanner.stop().catch(() => {});
-            onScan(decodedText);
+            // Stop the camera, then notify. Await stop so the stream releases
+            // before the modal closes (prevents a stuck white screen).
+            scanner
+              .stop()
+              .then(() => scanner.clear())
+              .catch(() => {})
+              .finally(() => onScan(decodedText));
           },
           () => {}, // per-frame errors are normal while aiming
         );
@@ -95,7 +99,11 @@ export function BarcodeScanner({
   return (
     <View style={styles.box}>
       <Text style={styles.title}>Point at the barcode</Text>
-      <View nativeID={regionId.current} id={regionId.current} style={styles.viewfinder} />
+      <View
+        nativeID={regionId.current}
+        id={regionId.current}
+        style={styles.viewfinder}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button title="Cancel" variant="ghost" onPress={onClose} />
     </View>

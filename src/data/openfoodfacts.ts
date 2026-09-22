@@ -20,6 +20,8 @@ export interface OffProduct {
   barcode: string;
   name: string;
   brand?: string;
+  /** The label's stated serving size in grams (e.g. 50 for "per 50 g bar"). */
+  servingSizeG: number;
   per100g: NutritionPer100g;
 }
 
@@ -58,6 +60,9 @@ export async function lookupBarcode(
       product_name?: string;
       brands?: string;
       nutriments?: OffNutriments;
+      /** e.g. "50 g" — the label's stated serving size, when present. */
+      serving_size?: string;
+      quantity?: string;
     };
   };
   if (json.status !== 1 || !json.product) return null;
@@ -66,10 +71,24 @@ export async function lookupBarcode(
   const calories = n["energy-kcal_100g"];
   if (typeof calories !== "number") return null; // no usable data
 
+  // Parse the label's serving size (e.g. "50 g" -> 50) so a "per bar / per
+  // serving" label maps to the right reference amount instead of defaulting
+  // to 100 g (which was causing values to look doubled when logging 1 serving).
+  let servingSizeG = 100;
+  const rawServing = json.product.serving_size;
+  if (typeof rawServing === "string") {
+    const m = rawServing.match(/([\d.]+)\s*(g|ml)/i);
+    if (m) {
+      const v = Number(m[1]);
+      if (Number.isFinite(v) && v > 0) servingSizeG = v;
+    }
+  }
+
   return {
     barcode,
     name: json.product.product_name?.trim() || "Unknown product",
     brand: json.product.brands?.split(",")[0]?.trim(),
+    servingSizeG,
     per100g: {
       calories,
       protein: n.proteins_100g ?? 0,

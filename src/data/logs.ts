@@ -47,6 +47,39 @@ export async function listFoodEntries(
 }
 
 /**
+ * Log a portion of a recipe to a day. Computes nutrition from the recipe's
+ * per-100g-cooked profile and links the entry to the recipe (food_id is null).
+ */
+export async function logRecipePortion(params: {
+  dailyLogId: string;
+  recipeId: string;
+  name: string;
+  grams: number;
+  meal: MealSlot;
+  per100g: { calories: number; protein: number; carbs: number; fat: number };
+}): Promise<FoodEntryRow> {
+  const factor = params.grams / 100;
+  const { data, error } = await supabase
+    .from("food_entries")
+    .insert({
+      daily_log_id: params.dailyLogId,
+      food_id: null,
+      recipe_id: params.recipeId,
+      name: params.name,
+      meal: params.meal,
+      grams: params.grams,
+      calories: round(params.per100g.calories * factor),
+      protein: round(params.per100g.protein * factor),
+      carbs: round(params.per100g.carbs * factor),
+      fat: round(params.per100g.fat * factor),
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Log a portion of a saved food to a day. Computes and snapshots the
  * calories/macros so historical entries stay stable even if the food is later
  * edited.

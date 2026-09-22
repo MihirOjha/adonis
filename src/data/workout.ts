@@ -45,13 +45,18 @@ export async function listExercises(userId: string): Promise<ExerciseRow[]> {
 }
 
 /** Find-or-create an exercise by normalized name (case/space-insensitive). */
-async function findOrCreateExercise(userId: string, name: string): Promise<string> {
+async function findOrCreateExercise(
+  userId: string,
+  name: string,
+): Promise<string> {
   const norm = name.trim().replace(/\s+/g, " ");
+  // Escape LIKE wildcards so names containing % or _ don't false-match.
+  const escaped = norm.replace(/[%_\\]/g, (c) => `\\${c}`);
   const found = await supabase
     .from("exercises")
     .select("id")
     .eq("user_id", userId)
-    .ilike("name", norm)
+    .ilike("name", escaped)
     .maybeSingle();
   if (found.data?.id) return found.data.id;
   const created = await supabase
@@ -66,7 +71,12 @@ async function findOrCreateExercise(userId: string, name: string): Promise<strin
 /** Save a workout session with its sets. Returns the session id. */
 export async function saveWorkout(
   userId: string,
-  input: { name: string; date?: string; durationMin?: number | null; sets: SetInput[] },
+  input: {
+    name: string;
+    date?: string;
+    durationMin?: number | null;
+    sets: SetInput[];
+  },
 ): Promise<string> {
   if (input.sets.length === 0) throw new Error("Add at least one set.");
   const logId = await getOrCreateDailyLog(userId, input.date ?? todayIso());
@@ -103,7 +113,10 @@ export async function saveWorkout(
 }
 
 /** List recent sessions with their sets, newest first. */
-export async function listWorkouts(userId: string, limit = 30): Promise<SessionWithSets[]> {
+export async function listWorkouts(
+  userId: string,
+  limit = 30,
+): Promise<SessionWithSets[]> {
   const { data, error } = await supabase
     .from("workout_sessions")
     .select(
@@ -134,6 +147,9 @@ export async function listWorkouts(userId: string, limit = 30): Promise<SessionW
 
 /** Delete a workout session (and its sets via cascade). */
 export async function deleteWorkout(sessionId: string): Promise<void> {
-  const { error } = await supabase.from("workout_sessions").delete().eq("id", sessionId);
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId);
   if (error) throw error;
 }

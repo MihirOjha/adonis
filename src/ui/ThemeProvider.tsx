@@ -5,7 +5,7 @@ import React, {
   useContext,
   useMemo,
 } from "react";
-import { applyTheme, colors as base } from "./theme";
+import { applyTheme, colors } from "./theme";
 
 /**
  * Per-user theme. The user's theme_color (a hex string, set by the admin)
@@ -70,7 +70,7 @@ export function ThemeProvider({
   return <>{children}</>;
 }
 
-/** Access the live theme colors. */
+/** Access the live theme colors (the same object screens mutate via applyTheme). */
 export function useTheme() {
-  return base;
+  return colors;
 }

@@ -109,21 +109,37 @@ export default function Food() {
       }
       const product = await lookupBarcode(barcodeValue);
       if (!product) {
-        Alert.alert("Not found", "No product for that barcode. Add it manually instead.");
+        Alert.alert(
+          "Not found",
+          "No product for that barcode. Add it manually instead.",
+        );
         setManualOpen(true);
         return;
       }
+
+      // Convert OFF's per-100g values to the label's per-serving values so the
+      // food displays and logs exactly as the label reads (e.g. "180 kcal per
+      // 50 g bar"), not doubled.
+      const servingG = product.servingSizeG;
+      const toServing = (per100: number) => (per100 * servingG) / 100;
       await createFood(userId, {
-        name: product.brand ? `${product.name} (${product.brand})` : product.name,
+        name: product.brand
+          ? `${product.name} (${product.brand})`
+          : product.name,
         source: "barcode",
         barcode: product.barcode,
-        servingSizeG: 100,
-        perServing: product.per100g,
-        fiber: product.per100g.fiber ?? null,
-        sodium: product.per100g.sodium ?? null,
-        iron: product.per100g.iron ?? null,
-        calcium: product.per100g.calcium ?? null,
-        vitaminD: product.per100g.vitaminD ?? null,
+        servingSizeG: servingG,
+        perServing: {
+          calories: toServing(product.per100g.calories),
+          protein: toServing(product.per100g.protein),
+          carbs: toServing(product.per100g.carbs),
+          fat: toServing(product.per100g.fat),
+        },
+        fiber: product.per100g.fiber != null ? toServing(product.per100g.fiber) : null,
+        sodium: product.per100g.sodium != null ? toServing(product.per100g.sodium) : null,
+        iron: product.per100g.iron != null ? toServing(product.per100g.iron) : null,
+        calcium: product.per100g.calcium != null ? toServing(product.per100g.calcium) : null,
+        vitaminD: product.per100g.vitaminD != null ? toServing(product.per100g.vitaminD) : null,
       });
       await refresh();
     } catch (e) {
@@ -195,12 +211,17 @@ export default function Food() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Today's log */}
         <Card>
           <View style={styles.rowBetween}>
             <Text style={styles.cardTitle}>Today</Text>
-            <Text style={styles.totalsText}>{Math.round(totals.calories)} kcal</Text>
+            <Text style={styles.totalsText}>
+              {Math.round(totals.calories)} kcal
+            </Text>
           </View>
           <View style={styles.macroTotals}>
             <MacroPill label="Protein" value={totals.protein} />
@@ -208,21 +229,29 @@ export default function Food() {
             <MacroPill label="Fat" value={totals.fat} />
           </View>
           {entries.length === 0 ? (
-            <Text style={styles.dim}>Nothing logged yet. Search or scan below.</Text>
+            <Text style={styles.dim}>
+              Nothing logged yet. Search or scan below.
+            </Text>
           ) : (
             entries.map((e) => (
               <View key={e.id} style={styles.entryRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.entryName}>{e.name ?? "Food"}</Text>
-                  <Text style={styles.dim}>{e.meal} · {e.grams} g</Text>
+                  <Text style={styles.dim}>
+                    {e.meal} · {e.grams} g
+                  </Text>
                 </View>
                 <Text style={styles.entryKcal}>{Math.round(e.calories)}</Text>
                 <Pressable onPress={() => handleDelete(e.id)} hitSlop={8}>
-                  <Ionicons name="trash-outline" size={18} color={colors.textDim} />
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={colors.textDim}
+                  />
                 </Pressable>
               </View>
             ))
-          )}
+          }
         </Card>
 
         {/* Search + scan */}
@@ -236,8 +265,15 @@ export default function Food() {
                 style={styles.searchInput}
               />
             </View>
-            <Pressable style={styles.scanBtn} onPress={() => setScannerOpen(true)}>
-              <Ionicons name="barcode-outline" size={22} color={colors.primaryText} />
+            <Pressable
+              style={styles.scanBtn}
+              onPress={() => setScannerOpen(true)}
+            >
+              <Ionicons
+                name="barcode-outline"
+                size={22}
+                color={colors.primaryText}
+              />
             </Pressable>
           </View>
           {searching ? (
@@ -253,18 +289,39 @@ export default function Food() {
           <Card>
             <Text style={styles.cardTitle}>{loggingFood.name}</Text>
             <Text style={styles.dim}>
-              {Math.round(loggingFood.calories)} kcal per {loggingFood.serving_size_g} g
+              {Math.round(loggingFood.calories)} kcal per{" "}
+              {loggingFood.serving_size_g} g
             </Text>
-            <Field label="Amount eaten (g)" value={grams} onChangeText={setGrams} keyboardType="numeric" />
+            <Field
+              label="Amount eaten (g)"
+              value={grams}
+              onChangeText={setGrams}
+              keyboardType="numeric"
+            />
             <View style={styles.mealRow}>
               {MEALS.map((m) => (
-                <Pressable key={m} onPress={() => setMeal(m)} style={[styles.mealChip, meal === m && styles.mealChipActive]}>
-                  <Text style={[styles.mealChipText, meal === m && styles.mealChipTextActive]}>{m}</Text>
+                <Pressable
+                  key={m}
+                  onPress={() => setMeal(m)}
+                  style={[styles.mealChip, meal === m && styles.mealChipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.mealChipText,
+                      meal === m && styles.mealChipTextActive,
+                    ]}
+                  >
+                    {m}
+                  </Text>
                 </Pressable>
               ))}
             </View>
             <Button title="Add to log" onPress={confirmLog} loading={busy} />
-            <Button title="Cancel" variant="ghost" onPress={() => setLoggingFood(null)} />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setLoggingFood(null)}
+            />
           </Card>
         ) : null}
 
@@ -273,17 +330,28 @@ export default function Food() {
           <Card>
             <Text style={styles.cardTitle}>From food database</Text>
             {external.map((f) => (
-              <Pressable key={f.key} style={styles.resultRow} onPress={() => saveExternal(f)}>
+              <Pressable
+                key={f.key}
+                style={styles.resultRow}
+                onPress={() => saveExternal(f)}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultName}>{f.name}</Text>
                   <Text style={styles.dim}>
-                    {Math.round(f.per100g.calories)} kcal · {Math.round(f.per100g.protein)}g P /100g
+                    {Math.round(f.per100g.calories)} kcal ·{" "}
+                    {Math.round(f.per100g.protein)}g P /100g
                   </Text>
                 </View>
-                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                <Ionicons
+                  name="add-circle-outline"
+                  size={22}
+                  color={colors.primary}
+                />
               </Pressable>
             ))}
-            <Text style={styles.attribution}>Includes USDA FoodData Central.</Text>
+            <Text style={styles.attribution}>
+              Includes USDA FoodData Central.
+            </Text>
           </Card>
         ) : null}
 
@@ -291,20 +359,31 @@ export default function Food() {
         <Card>
           <Text style={styles.cardTitle}>Your foods</Text>
           {savedFoods.length === 0 ? (
-            <Text style={styles.dim}>No saved foods yet. Search above or scan a barcode.</Text>
+            <Text style={styles.dim}>
+              No saved foods yet. Search above or scan a barcode.
+            </Text>
           ) : (
             savedFoods.map((f) => (
-              <Pressable key={f.id} style={styles.resultRow} onPress={() => openLogEditor(f)}>
+              <Pressable
+                key={f.id}
+                style={styles.resultRow}
+                onPress={() => openLogEditor(f)}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultName}>{f.name}</Text>
                   <Text style={styles.dim}>
-                    {Math.round(f.calories)} kcal · {Math.round(f.protein)}g P /{f.serving_size_g}g
+                    {Math.round(f.calories)} kcal · {Math.round(f.protein)}g P /
+                    {f.serving_size_g}g
                   </Text>
                 </View>
-                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                <Ionicons
+                  name="add-circle-outline"
+                  size={22}
+                  color={colors.primary}
+                />
               </Pressable>
             ))
-          )}
+          }
         </Card>
 
         {/* Manual add */}
@@ -319,17 +398,30 @@ export default function Food() {
             }}
           />
         ) : (
-          <Button title="+ New food (manual)" variant="ghost" onPress={() => setManualOpen(true)} />
+          <Button
+            title="+ New food (manual)"
+            variant="ghost"
+            onPress={() => setManualOpen(true)}
+          />
         )}
 
-        <Text style={styles.attribution}>Barcode data from Open Food Facts (ODbL).</Text>
+        <Text style={styles.attribution}>
+          Barcode data from Open Food Facts (ODbL).
+        </Text>
       </ScrollView>
 
       {/* Camera scanner modal */}
-      <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
+      <Modal
+        visible={scannerOpen}
+        animationType="slide"
+        onRequestClose={() => setScannerOpen(false)}
+      >
         <SafeAreaView style={styles.scannerScreen}>
           <View style={styles.scannerBody}>
-            <BarcodeScanner onScan={handleScan} onClose={() => setScannerOpen(false)} />
+            <BarcodeScanner
+              onScan={handleScan}
+              onClose={() => setScannerOpen(false)}
+            />
           </View>
         </SafeAreaView>
       </Modal>
@@ -353,7 +445,12 @@ function ManualFoodForm({
   onSave: (input: {
     name: string;
     servingSizeG: number;
-    perServing: { calories: number; protein: number; carbs: number; fat: number };
+    perServing: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    };
   }) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -368,7 +465,12 @@ function ManualFoodForm({
   return (
     <Card>
       <Text style={styles.cardTitle}>New food</Text>
-      <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Greek yogurt" />
+      <Field
+        label="Name"
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Greek yogurt"
+      />
       <Field
         label="Label values are per ___ g (or ml)"
         value={serving}
@@ -377,13 +479,38 @@ function ManualFoodForm({
         placeholder="100"
       />
       <Text style={styles.dim}>
-        Enter the numbers exactly as the label prints them for that amount. We handle the math.
+        Enter the numbers exactly as the label prints them for that amount. We
+        handle the math.
       </Text>
       <View style={styles.macroGrid}>
-        <Field label="Calories (kcal)" value={cal} onChangeText={setCal} keyboardType="numeric" style={styles.macroField} />
-        <Field label="Protein (g)" value={p} onChangeText={setP} keyboardType="numeric" style={styles.macroField} />
-        <Field label="Carbs (g)" value={c} onChangeText={setC} keyboardType="numeric" style={styles.macroField} />
-        <Field label="Fat (g)" value={f} onChangeText={setF} keyboardType="numeric" style={styles.macroField} />
+        <Field
+          label="Calories (kcal)"
+          value={cal}
+          onChangeText={setCal}
+          keyboardType="numeric"
+          style={styles.macroField}
+        />
+        <Field
+          label="Protein (g)"
+          value={p}
+          onChangeText={setP}
+          keyboardType="numeric"
+          style={styles.macroField}
+        />
+        <Field
+          label="Carbs (g)"
+          value={c}
+          onChangeText={setC}
+          keyboardType="numeric"
+          style={styles.macroField}
+        />
+        <Field
+          label="Fat (g)"
+          value={f}
+          onChangeText={setF}
+          keyboardType="numeric"
+          style={styles.macroField}
+        />
       </View>
       <Button
         title="Save food"
@@ -415,7 +542,11 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   cardTitle: { color: colors.text, ...type.heading },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   totalsText: { color: colors.text, fontSize: 22, fontWeight: "800" },
   macroTotals: { flexDirection: "row", gap: spacing.sm },
   macroPill: {
@@ -448,7 +579,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  centerRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", justifyContent: "center" },
+  centerRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   resultRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -467,12 +603,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  mealChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  mealChipText: { color: colors.textDim, fontWeight: "600", textTransform: "capitalize" },
+  mealChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  mealChipText: {
+    color: colors.textDim,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
   mealChipTextActive: { color: colors.primaryText },
   macroGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   macroField: { flexBasis: "48%", flexGrow: 1 },
-  attribution: { color: colors.textDim, fontSize: 11, textAlign: "center", marginTop: spacing.sm },
+  attribution: {
+    color: colors.textDim,
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: spacing.sm,
+  },
   scannerScreen: { flex: 1, backgroundColor: colors.bg },
   scannerBody: { padding: spacing.md, flex: 1, justifyContent: "center" },
 });

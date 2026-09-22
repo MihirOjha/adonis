@@ -19,8 +19,8 @@ import {
   setRecipeVisibility,
   type RecipeIngredientInput,
 } from "@/data/recipe";
-import { getOrCreateDailyLog, logFood, todayIso } from "@/data/logs";
-import type { FoodRow, RecipeRow } from "@/lib/database.types";
+import { getOrCreateDailyLog, logRecipePortion, todayIso } from "@/data/logs";
+import type { MealSlot, RecipeRow } from "@/lib/database.types";
 import { Button, Card, Field } from "@/ui/components";
 import { colors, radius, spacing, type } from "@/ui/theme";
 
@@ -39,6 +39,7 @@ export default function Recipes() {
   const [creating, setCreating] = useState(false);
   const [loggingRecipe, setLoggingRecipe] = useState<RecipeRow | null>(null);
   const [portionGrams, setPortionGrams] = useState("");
+  const [portionMeal, setPortionMeal] = useState<MealSlot>("snack");
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -60,31 +61,14 @@ export default function Recipes() {
     setBusy(true);
     try {
       const per100 = recipePer100g(loggingRecipe);
-      const factor = g / 100;
       const logId = await getOrCreateDailyLog(userId, todayIso());
-      // Log the portion as a food entry linked to the recipe.
-      await logFood({
+      await logRecipePortion({
         dailyLogId: logId,
-        food: {
-          id: "",
-          user_id: userId,
-          name: loggingRecipe.name,
-          source: "manual",
-          barcode: null,
-          serving_size_g: 100,
-          calories: per100.calories,
-          protein: per100.protein,
-          carbs: per100.carbs,
-          fat: per100.fat,
-          fiber: null,
-          sodium: null,
-          iron: null,
-          calcium: null,
-          vitamin_d: null,
-          created_at: "",
-        } as FoodRow,
+        recipeId: loggingRecipe.id,
+        name: loggingRecipe.name,
         grams: g,
-        meal: "snack",
+        meal: portionMeal,
+        per100g: per100,
       });
       setLoggingRecipe(null);
       setPortionGrams("");
@@ -102,13 +86,19 @@ export default function Recipes() {
   }
 
   async function toggleShare(r: RecipeRow) {
-    await setRecipeVisibility(r.id, r.visibility === "shared" ? "private" : "shared");
+    await setRecipeVisibility(
+      r.id,
+      r.visibility === "shared" ? "private" : "shared",
+    );
     await refresh();
   }
 
   return (
     <SafeAreaView style={styles.screen} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {creating ? (
           <RecipeEditor
             userId={userId!}
@@ -127,7 +117,8 @@ export default function Recipes() {
               <Card>
                 <Text style={styles.cardTitle}>{loggingRecipe.name}</Text>
                 <Text style={styles.dim}>
-                  {Math.round(recipePer100g(loggingRecipe).calories)} kcal per 100 g (cooked)
+                  {Math.round(recipePer100g(loggingRecipe).calories)} kcal per
+                  100 g (cooked)
                 </Text>
                 <Field
                   label="Portion weight (g)"
@@ -136,8 +127,29 @@ export default function Recipes() {
                   keyboardType="numeric"
                   placeholder="e.g. 350"
                 />
-                <Button title="Log portion" onPress={handleLogPortion} loading={busy} />
-                <Button title="Cancel" variant="ghost" onPress={() => setLoggingRecipe(null)} />
+                <View style={styles.mealRow}>
+                  {(["breakfast", "lunch", "dinner", "snack"] as MealSlot[]).map((m) => (
+                    <Pressable
+                      key={m}
+                      onPress={() => setPortionMeal(m)}
+                      style={[styles.mealChip, portionMeal === m && styles.mealChipActive]}
+                    >
+                      <Text style={[styles.mealChipText, portionMeal === m && styles.mealChipTextActive]}>
+                        {m}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Button
+                  title="Log portion"
+                  onPress={handleLogPortion}
+                  loading={busy}
+                />
+                <Button
+                  title="Cancel"
+                  variant="ghost"
+                  onPress={() => setLoggingRecipe(null)}
+                />
               </Card>
             ) : null}
 
@@ -145,7 +157,8 @@ export default function Recipes() {
               <Text style={styles.cardTitle}>Your recipes</Text>
               {recipes.length === 0 ? (
                 <Text style={styles.dim}>
-                  No recipes yet. Create one to log a whole cooked dish by portion weight.
+                  No recipes yet. Create one to log a whole cooked dish by
+                  portion weight.
                 </Text>
               ) : (
                 recipes.map((r) => (
@@ -160,28 +173,50 @@ export default function Recipes() {
                         ) : null}
                       </View>
                       <Text style={styles.dim}>
-                        {Math.round(recipePer100g(r).calories)} kcal/100g · whole dish{" "}
-                        {Math.round(r.total_calories)} kcal
+                        {Math.round(recipePer100g(r).calories)} kcal/100g ·
+                        whole dish {Math.round(r.total_calories)} kcal
                       </Text>
                     </View>
                     <View style={styles.recipeActions}>
-                      <Pressable onPress={() => { setLoggingRecipe(r); setPortionGrams(""); }} hitSlop={8}>
-                        <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                      <Pressable
+                        onPress={() => {
+                          setLoggingRecipe(r);
+                          setPortionGrams("");
+                        }}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={22}
+                          color={colors.primary}
+                        />
                       </Pressable>
                       <Pressable onPress={() => toggleShare(r)} hitSlop={8}>
                         <Ionicons
-                          name={r.visibility === "shared" ? "people" : "people-outline"}
+                          name={
+                            r.visibility === "shared"
+                              ? "people"
+                              : "people-outline"
+                          }
                           size={20}
-                          color={r.visibility === "shared" ? colors.primary : colors.textDim}
+                          color={
+                            r.visibility === "shared"
+                              ? colors.primary
+                              : colors.textDim
+                          }
                         />
                       </Pressable>
                       <Pressable onPress={() => handleDelete(r.id)} hitSlop={8}>
-                        <Ionicons name="trash-outline" size={18} color={colors.textDim} />
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={colors.textDim}
+                        />
                       </Pressable>
                     </View>
                   </View>
                 ))
-              )}
+              }
             </Card>
           </>
         )}
@@ -216,12 +251,20 @@ function RecipeEditor({
     };
     setIngredients((prev) => [
       ...prev,
-      { key: nextKey(), foodId: food.id, name: food.name, rawGrams: grams, per100g: per100 },
+      {
+        key: nextKey(),
+        foodId: food.id,
+        name: food.name,
+        rawGrams: grams,
+        per100g: per100,
+      },
     ]);
   }
 
   function updateGrams(key: string, grams: number) {
-    setIngredients((prev) => prev.map((i) => (i.key === key ? { ...i, rawGrams: grams } : i)));
+    setIngredients((prev) =>
+      prev.map((i) => (i.key === key ? { ...i, rawGrams: grams } : i)),
+    );
   }
 
   function removeIngredient(key: string) {
@@ -237,7 +280,10 @@ function RecipeEditor({
     }
     const cw = Number(cookedWeight);
     if (!Number.isFinite(cw) || cw <= 0) {
-      Alert.alert("Cooked weight needed", "Weigh the finished dish and enter its weight in grams.");
+      Alert.alert(
+        "Cooked weight needed",
+        "Weigh the finished dish and enter its weight in grams.",
+      );
       return;
     }
     setBusy(true);
@@ -259,7 +305,12 @@ function RecipeEditor({
   return (
     <Card>
       <Text style={styles.cardTitle}>New recipe</Text>
-      <Field label="Recipe name" value={name} onChangeText={setName} placeholder="e.g. Chicken curry batch" />
+      <Field
+        label="Recipe name"
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Chicken curry batch"
+      />
 
       {/* Ingredients */}
       <Text style={styles.sectionLabel}>Ingredients (raw weights)</Text>
@@ -278,7 +329,11 @@ function RecipeEditor({
           </View>
           <Text style={styles.dim}>g</Text>
           <Pressable onPress={() => removeIngredient(ing.key)} hitSlop={8}>
-            <Ionicons name="close-circle-outline" size={20} color={colors.textDim} />
+            <Ionicons
+              name="close-circle-outline"
+              size={20}
+              color={colors.textDim}
+            />
           </Pressable>
         </View>
       ))}
@@ -294,8 +349,8 @@ function RecipeEditor({
         placeholder="Weigh the whole dish after cooking"
       />
       <Text style={styles.dim}>
-        Weigh the pot/dish before and after cooking, or weigh the finished food. This is how we
-        compute accurate per-gram nutrition for portioning.
+        Weigh the pot/dish before and after cooking, or weigh the finished food.
+        This is how we compute accurate per-gram nutrition for portioning.
       </Text>
 
       {/* Share toggle */}
@@ -305,7 +360,9 @@ function RecipeEditor({
           size={22}
           color={shared ? colors.primary : colors.textDim}
         />
-        <Text style={styles.shareText}>Share with partner (they can portion from it)</Text>
+        <Text style={styles.shareText}>
+          Share this recipe (others you share with can portion from it)
+        </Text>
       </Pressable>
 
       <Button title="Save recipe" onPress={save} loading={busy} />
@@ -355,7 +412,12 @@ function IngredientPicker({
           <Text style={styles.ingredientName}>{selected.name}</Text>
           <View style={styles.selectedRow}>
             <View style={{ width: 100 }}>
-              <Field label="Raw g" value={grams} onChangeText={setGrams} keyboardType="numeric" />
+              <Field
+                label="Raw g"
+                value={grams}
+                onChangeText={setGrams}
+                keyboardType="numeric"
+              />
             </View>
             <Button
               title="Add"
@@ -373,12 +435,21 @@ function IngredientPicker({
         </View>
       ) : (
         results.map((f) => (
-          <Pressable key={f.id} style={styles.suggestion} onPress={() => { setSelected(f); setGrams(""); }}>
+          <Pressable
+            key={f.id}
+            style={styles.suggestion}
+            onPress={() => {
+              setSelected(f);
+              setGrams("");
+            }}
+          >
             <Text style={styles.suggestionText}>{f.name}</Text>
-            <Text style={styles.dim}>{Math.round(f.calories)} kcal/{f.serving_size_g}g</Text>
+            <Text style={styles.dim}>
+              {Math.round(f.calories)} kcal/{f.serving_size_g}g
+            </Text>
           </Pressable>
         ))
-      )}
+      }
     </View>
   );
 }
@@ -387,7 +458,12 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   cardTitle: { color: colors.text, ...type.heading },
-  sectionLabel: { color: colors.text, fontSize: 14, fontWeight: "600", marginTop: spacing.xs },
+  sectionLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: spacing.xs,
+  },
   dim: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
   recipeRow: {
     flexDirection: "row",
@@ -397,7 +473,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: "center",
   },
-  recipeNameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  recipeNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   recipeName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   sharedBadge: {
     backgroundColor: colors.primary,
@@ -405,9 +485,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
-  sharedBadgeText: { color: colors.primaryText, fontSize: 10, fontWeight: "700" },
-  recipeActions: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
-  ingredientRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  sharedBadgeText: {
+    color: colors.primaryText,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  recipeActions: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+  },
+  ingredientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   ingredientName: { color: colors.text, fontSize: 14, fontWeight: "600" },
   gramsInput: { minHeight: 40, paddingVertical: spacing.xs },
   pickerBox: { gap: spacing.xs, marginTop: spacing.xs },
@@ -420,8 +512,44 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   suggestionText: { color: colors.text, fontSize: 14 },
-  selectedIngredient: { gap: spacing.sm, padding: spacing.sm, backgroundColor: colors.surfaceAlt, borderRadius: radius.sm },
-  selectedRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-end" },
-  shareRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  selectedIngredient: {
+    gap: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+  },
+  selectedRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    alignItems: "flex-end",
+  },
+  shareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
   shareText: { color: colors.text, fontSize: 14 },
+  mealRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  mealChip: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  mealChipActive: {
+    backgroundColor: colors.primary,
+  },
+  mealChipText: {
+    color: colors.text,
+    fontSize: 14,
+  },
+  mealChipTextActive: {
+    color: colors.primaryText,
+    fontWeight: "700",
+  },
 });

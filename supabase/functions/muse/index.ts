@@ -390,12 +390,14 @@ Deno.serve(async (req: Request) => {
         for (let i = 0; i < sets.length; i++) {
           const s = sets[i];
           const normName = s.exercise.trim().replace(/\s+/g, " ");
-          // find existing (case-insensitive)
+          // find existing (case-insensitive). Escape LIKE wildcards so names
+          // containing % or _ don't false-match other exercises.
+          const escaped = normName.replace(/[%_\\]/g, (c) => `\\${c}`);
           const found = await supabase
             .from("exercises")
             .select("id")
             .eq("user_id", userId)
-            .ilike("name", normName)
+            .ilike("name", escaped)
             .maybeSingle();
           let exerciseId = found.data?.id as string | undefined;
           if (!exerciseId) {
@@ -512,9 +514,13 @@ Deno.serve(async (req: Request) => {
         return json({ error: `Unknown action: ${action}` }, 400);
     }
   } catch (e) {
-    return json(
-      { error: e instanceof Error ? e.message : "Server error" },
-      500,
-    );
+    // Map known Postgres constraint violations to a clean 400 instead of a
+    // generic 500 (e.g. grams <= 0 -> check constraint 23514).
+    const msg = e instanceof Error ? e.message : "Server error";
+    const code = (e as any)?.code;
+    if (code === "23514" || code === "23502" || code === "23503" || code === "23505") {
+      return json({ error: msg }, 400);
+    }
+    return json({ error: msg }, 500);
   }
 });

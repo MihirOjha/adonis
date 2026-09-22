@@ -94,16 +94,32 @@ export default function AppTabs() {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [accent, setAccent] = useState<string | null>(null);
+  const [themeReady, setThemeReady] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
     getProfile(userId)
-      .then((p) => setAccent(p?.theme_color ?? null))
-      .catch(() => setAccent(null));
+      .then((p) => {
+        if (!cancelled) setAccent(p?.theme_color ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAccent(null);
+      })
+      .finally(() => {
+        if (!cancelled) setThemeReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
+  // Don't render until the theme color has loaded, so there's no flash of the
+  // default theme followed by the user's color.
+  if (!themeReady) return null;
+
   return (
-    <ThemeProvider accent={accent}>
+    <ThemeProvider accent={accent} key={accent ?? "default"}>
       <ThemedTabs />
     </ThemeProvider>
   );

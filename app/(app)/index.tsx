@@ -101,7 +101,10 @@ export default function Dashboard() {
             </View>
             <View style={styles.heroStats}>
               <HeroStat label="Goal" value={`${target.calories}`} />
-              <HeroStat label="Eaten" value={`${Math.round(totals.calories)}`} />
+              <HeroStat
+                label="Eaten"
+                value={`${Math.round(totals.calories)}`}
+              />
               <HeroStat
                 label="Protein left"
                 value={
@@ -117,8 +120,8 @@ export default function Dashboard() {
           <View style={{ gap: spacing.sm }}>
             <Text style={styles.cardTitle}>Today's target</Text>
             <Text style={styles.dim}>
-              No target yet. Open the Coach tab and tap "Recalculate" to generate
-              your first adaptive target.
+              No target yet. Open the Coach tab and tap "Recalculate" to
+              generate your first adaptive target.
             </Text>
           </View>
         )}
@@ -155,7 +158,9 @@ export default function Dashboard() {
         {data?.trendKg != null ? (
           <View style={styles.trendRow}>
             <View>
-              <Text style={styles.trendValue}>{data.trendKg.toFixed(1)} kg</Text>
+              <Text style={styles.trendValue}>
+                {data.trendKg.toFixed(1)} kg
+              </Text>
               <Text style={styles.dim}>smoothed trend</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
@@ -167,8 +172,8 @@ export default function Dashboard() {
                       data.slopeKgPerWeek == null
                         ? colors.textDim
                         : data.slopeKgPerWeek < 0
-                        ? colors.success
-                        : colors.warn,
+                          ? colors.success
+                          : colors.warn,
                   },
                 ]}
               >
@@ -240,54 +245,21 @@ function MacroBar({
   );
 }
 
-/** A simple SVG-free progress ring using a bordered circle + overlay. */
-function ProgressRing({
-  progress,
-  size,
-}: {
-  progress: number;
-  size: number;
-}) {
+/** A clean progress ring using a CSS conic-gradient (reliable on web). */
+function ProgressRing({ progress, size }: { progress: number; size: number }) {
   const p = Math.max(0, Math.min(progress, 1));
-  const deg = p * 360;
-  return (
-    <View
-      style={[
-        styles.ring,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderColor: colors.surfaceAlt,
-        },
-      ]}
-    >
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            borderRadius: size / 2,
-            // Conic-like fill via a rotated half overlay (works on web + native).
-            overflow: "hidden",
-          },
-        ]}
-      >
-        <View
-          style={{
-            position: "absolute",
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: 10,
-            borderColor: colors.primary,
-            borderTopColor: deg > 0 ? colors.primary : "transparent",
-            transform: [{ rotate: `${deg - 45}deg` }],
-            opacity: 0.9,
-          }}
-        />
-      </View>
-    </View>
-  );
+  const deg = Math.round(p * 360);
+  const ringStyle: any = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    // Conic gradient ring (web). A mask cuts out the center so it's a ring.
+    background: `conic-gradient(${colors.primary} ${deg}deg, ${colors.surfaceAlt} ${deg}deg)`,
+    // @ts-ignore webkit mask for older Safari
+    WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))`,
+    mask: `radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))`,
+  };
+  return <View style={ringStyle} />;
 }
 
 const styles = StyleSheet.create({
@@ -296,13 +268,34 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
   dim: { color: colors.textDim, fontSize: 13, lineHeight: 19 },
   heroRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
-  ringWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
-  ring: { borderWidth: 10 },
-  ringCenter: { position: "absolute", alignItems: "center" },
-  ringValue: { color: colors.text, fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  ringWrap: {
+    width: 120,
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringCenter: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringValue: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
   ringLabel: { color: colors.textDim, fontSize: 12 },
   heroStats: { flex: 1, gap: spacing.sm },
-  heroStat: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  heroStat: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   heroStatValue: { color: colors.text, fontSize: 17, fontWeight: "700" },
   macroBarWrap: { gap: spacing.xs },
   macroBarHeader: { flexDirection: "row", justifyContent: "space-between" },
@@ -314,7 +307,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   macroBarFill: { height: 8, borderRadius: 4 },
-  trendRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  trendRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   trendValue: { color: colors.text, fontSize: 24, fontWeight: "800" },
   trendSlope: { fontSize: 17, fontWeight: "700" },
 });

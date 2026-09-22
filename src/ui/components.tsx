@@ -141,6 +141,11 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   stat: { alignItems: "center", gap: 2, flex: 1 },
-  statValue: { color: colors.text, fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  statValue: {
+    color: colors.text,
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
   statLabel: { color: colors.textDim, ...type.caption },
 });
